@@ -17,5 +17,3 @@ dividing surfaces."
 The Journal of Physical Chemistry A 107.46 (2003): 9776-9781.
 
 Written by Xi Chen, updated by Xi Chen and Youbin Kim
-
-test

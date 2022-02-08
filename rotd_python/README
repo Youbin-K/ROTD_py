@@ -17,8 +17,8 @@ The Journal of Physical Chemistry A 107.46 (2003): 9776-9781.
 Starting from the example.py, submit by using the submit.sh in CCV.
 
 To run on local computer, use 
-"mpiexec -n 2 python3 ch3ch3_close.py"
+"mpiexec -n 2 python3 example.py"
 Here, by chaning the number "2" after -n, cpu core usage can be determined.
-When running in local environment, number of dividing surface (given in ch3ch3_close.py) is recommended to be below 3, since it takes a lot of time to run.
+When running in local environment, number of dividing surface (written in example.py) is recommended to stay below 3, since it takes a lot of time to run.
 
 Explanations on how the code works are written in each fragment, sample, flux and multi.py file.

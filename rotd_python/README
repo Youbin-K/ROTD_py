@@ -14,7 +14,7 @@ Georgievskii, Yuri, and Stephen J. Klippenstein.
 dividing surfaces." 
 The Journal of Physical Chemistry A 107.46 (2003): 9776-9781.
 
-Starting from the ch3ch3_close.py, submit by using the submit.sh in CCV.
+Starting from the example.py, submit by using the submit.sh in CCV.
 
 To run on local computer, use 
 "mpiexec -n 2 python3 ch3ch3_close.py"

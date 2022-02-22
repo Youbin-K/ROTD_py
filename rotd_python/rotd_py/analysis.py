@@ -1,5 +1,5 @@
 import numpy as np
-import rotd_math as rotd_math
+import rotd_py.rotd_math as rotd_math
 from scipy.integrate import simps
 
 # This file is used to parse the calculated flux

@@ -1,5 +1,7 @@
 # ROTD_py
 
+# Surface-gas version and slurm version of the rotd_py is in progress
+
 This is a python package for Variable Reaction Coordinate Transition State Theory
 (VRC-TST)
 

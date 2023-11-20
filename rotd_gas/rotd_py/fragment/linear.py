@@ -71,7 +71,7 @@ class Linear(Fragment):
             raise ValueError("Invalid rotation vector")
 
         # TODO: double check the conversion.
-        for i in range(0, self.get_number_of_atoms()):
+        for i in range(0, self.get_global_number_of_atoms()):
             factor = orig_mf_pos[i][0] / norm
             for j in range(0, 3):
                 self.frag_array['lab_frame_positions'][i][j] = new_com[j] + \

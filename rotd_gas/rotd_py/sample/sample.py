@@ -1,10 +1,15 @@
+from abc import ABCMeta, abstractmethod
+
+import numpy as np
+from mpi4py import MPI
+from ase.atoms import Atoms
+#from amp import Amp
+
+import rotd_py
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
-import numpy as np
-from abc import ABCMeta, abstractmethod
-from ase.atoms import Atoms
-from ase.io.trajectory import Trajectory
-from amp import Amp
+from rotd_py.molpro.molpro import Molpro
+from scipy.interpolate import make_interp_spline
 
 
 class Sample(object):
@@ -30,10 +35,14 @@ class Sample(object):
     dof_num : degree of freedom of the reaction system.
     weight : the geometry weight for the generated configuration.
     inf_energy: the energy of the configuration at infinite separation in Hartree
+    scan_sample: 1D energies (kcal) along the dissociation computed at the sampling level
+    scan_trust: 1D energies (kcal) along the dissociation computed at the highest affordable level
     """
 
     def __init__(self, fragments=None, dividing_surface=None,
-                 min_fragments_distance=1.5, inf_energy=0.0, energy_size=1):
+                 min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
+                 r_sample=None, e_sample=None, r_trust=None, e_trust=None,
+                 scan_ref=None):
         __metaclass__ = ABCMeta
         # list of fragments
 
@@ -44,11 +53,52 @@ class Sample(object):
         self.div_surface = dividing_surface
         self.close_dist = min_fragments_distance
         self.weight = 0.0
-        self.inf_energy = inf_energy
+        self.inf_energy = inf_energy*rotd_math.Hartree #Convert energy from Hartree to eV
+        # correction potential parameters
+        self.set_scan_ref(scan_ref)  # atom number of pivots, list of lists
+        self._1d_correction = self.get_1d_correction(r_sample, e_sample, r_trust, e_trust)
         self.energy_size = energy_size
         self.energies = np.array([0.] * self.energy_size)
         self.ini_configuration()
         self.set_dof()
+
+    def get_1d_correction(self, r_sample, e_sample, r_trust, e_trust):
+        """Function that takes scan relative energies in Kcal
+        and returns a spline corresponding to the 1d correction in eV."""
+        if r_sample == None or not isinstance(r_sample, list):
+            r_sample == [0.0, 25.0]
+        if r_trust == None or not isinstance(r_trust, list):
+            r_trust == [0.0, 25.0]
+        if e_sample == None or not isinstance(e_sample, list):
+            e_sample == [0, 0]
+        if e_trust == None or not isinstance(e_trust, list):
+            e_trust == [0, 0]
+        
+        x_spln_1d_correction = np.arange(min(r_sample + r_trust), max(r_sample + r_trust), 0.01)
+        
+        spln_sample = make_interp_spline(r_sample, np.asarray(e_sample)*rotd_math.Kcal/rotd_math.Hartree)
+        spln_trust = make_interp_spline(r_trust, np.asarray(e_trust)*rotd_math.Kcal/rotd_math.Hartree)
+
+        y_spln_sample = spln_sample(x_spln_1d_correction)
+        y_spln_trust = spln_trust(x_spln_1d_correction)
+
+        y_1d_correction = np.subtract(np.asarray(y_spln_sample), np.asarray(y_spln_trust))
+
+        _1d_correction = make_interp_spline(x_spln_1d_correction, y_1d_correction)
+
+        return _1d_correction
+    
+    def energy_correction(self):
+        distance = np.inf
+        for scr in self.scan_ref:
+            distance = min(distance, np.absolute(np.linalg.norm(self.configuration.positions[scr[0]] -\
+                                                  self.configuration.positions[scr[1]])))
+        e = self._1d_correction(distance)
+        return e
+
+    def set_scan_ref(self, scan_ref):
+        for scr in scan_ref:
+            scr = [scr[0], scr[1]+len(self.fragments[0].positions)]
 
     def get_dividing_surface(self):
         return self.div_surface
@@ -80,10 +130,6 @@ class Sample(object):
             for pos in frag.get_positions():
                 new_positions.append(pos)
         self.configuration = Atoms(new_atoms, new_positions)
-
-        #traj = Trajectory('example.traj', 'w', self.configuration)
-        #traj.write()
-        #traj.close() 
 
     def get_dof(self):
         """return degree of freedom
@@ -153,19 +199,28 @@ class Sample(object):
         """
         pass
 
-    def get_energies(self, calculator):
+    def get_energies(self, calculator, flux_id=0):
 
         # return absolute energy in e
         # This is a temporary fix specific for using Amp calculator as we are not able to
         # either 1) deepcopy the Amp calculator object or 2) using MPI send/receive Amp calculator object
         # Note: this may cause some performance issue as we need to load Amp calculator for each calculation.
-        amp_calc = Amp.load(calculator)
-        self.configuration.set_calculator(amp_calc)
-        e = self.configuration.get_potential_energy()
-        self.configuration.set_calculator(None)
-        # TODO: need to fill the energy correction part
+        if calculator['code'] == 'amp.amp':
+            amp_calc = Amp.load(f'{rotd_py.__path__[0]}/amp.amp')
+            self.configuration.set_calculator(amp_calc)
+            energy = self.configuration.get_potential_energy()
+            self.configuration.set_calculator(None)
+        elif calculator['code'] == 'molpro':
+            label = f'surf{self.div_surface.surf_id}_samp{flux_id}'
+            mp = Molpro(label, self.configuration, calculator['scratch'],
+                        calculator['processors'])
+            mp.create_input()
+            mp.run()
+            energy = mp.read_energy()
 
-        self.energies[0] = e / rotd_math.Hartree - self.inf_energy
+        #Energies must be in eV
+        self.energies[0] = (energy + self.energy_correction() - self.inf_energy)/rotd_math.Hartree
+
         return self.energies
 
 

@@ -161,12 +161,7 @@ def random_orient(dimes):
     """
     vec = [np.random.normal() for i in range(dimes)]
     vec = np.array(vec)
-    print ("dimes", dimes) # 3 or 4
-    print ("rotd_math.py rnd orient vec", vec) # 3 or 4 array followed by dimes
     meg = sum(x**2 for x in vec) ** 0.5
-    #print ("x", x) # Undefined
-    test = vec/meg
-    print ("rotd_math.py rnd orient output", test) # 3 or 4 array followed by dimes
     return vec/meg
 
 

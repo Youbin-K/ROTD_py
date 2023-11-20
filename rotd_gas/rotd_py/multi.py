@@ -1,3 +1,4 @@
+import os
 from mpi4py import MPI
 from mpi_master_slave import Master, Slave
 from mpi_master_slave import WorkQueue
@@ -47,16 +48,13 @@ class multi_master():
         """
         # Here the number of tasks is the initial number of tasks saved in the
         # working queue.
-        print ("asdf", self.total_flux)
         num_surfaces = len(self.total_flux)
         curr_surf = 0
         curr_flux = self.total_flux[str(curr_surf)]  # multiflux
-        print ("curr_flux:", curr_flux)
 
         # initialize the calculation for the first dividing surface
         for i in range(0, curr_flux.num_faces):
             flux = copy.deepcopy(curr_flux.flux_array[i])
-            print ("fluxxxx", flux)
             for j in range(flux.pot_min()):
                 self.work_queue.add_work(data=(FluxTag.FLUX_TAG, flux,
                                                curr_surf, flux.samp_len()))
@@ -102,7 +100,6 @@ class multi_master():
                 if flux_tag == FluxTag.FLUX_TAG:
                     face_index = smp_info
                     flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
-                    print ("FLUX_TAG", flux)
                     self.work_queue.add_work(data=(flux_tag, flux, sid,
                                                    flux.samp_len()))
 
@@ -112,7 +109,6 @@ class multi_master():
                     for face_index in range(0, len(smp_num)):
                         if smp_num[i] != 0:
                             flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
-                            print ("SURF_TAG", flux)
                             self.work_queue.add_work(data=(flux_tag, sid, flux,
                                                            smp_num[i]))
 
@@ -128,7 +124,6 @@ class multi_master():
                         curr_flux = self.total_flux[str(curr_surf)]
                         for i in range(curr_flux.num_faces):
                             flux = copy.deepcopy(curr_flux.flux_array[i])
-                            print ("STOP_TAG", flux)
                             for j in range(flux.pot_min()):
                                 self.work_queue.add_work(data=(FluxTag.FLUX_TAG,
                                                                flux, curr_surf,
@@ -137,7 +132,8 @@ class multi_master():
                 else:
                     raise ValueError("The flux tag is INVALID")
 
-            time.sleep(0.3)
+            #time.sleep(0.3)
+        return curr_surf
 
 
 class MySlave(Slave):
@@ -175,7 +171,8 @@ class Multi(object):
     so it gives work to do to its slaves until all the work is done
     """
 
-    def __init__(self, fluxbase=None, dividing_surfaces=None, sample=None, calculator=None):
+    def __init__(self, fluxbase=None, dividing_surfaces=None, sample=None,
+                 calculator=None, max_jobs=float('inf')):
         """Initialize the multi flux calculation.
 
         Parameters
@@ -205,6 +202,11 @@ class Multi(object):
                                                     sample=indivi_sample,
                                                     calculator=calculator)
         self.slave = MySlave()
+        if calculator == 'molpro':
+            try:
+                os.mkdir('scratch')
+            except FileExistsError:
+                pass
 
     def run(self):
         # start the mpi run
@@ -216,7 +218,8 @@ class Multi(object):
         try:
             if rank == 0:  # Master
 
-                app = multi_master(slaves=range(1, size), total_flux=self.total_flux)
+                app = multi_master(slaves=range(1, size),
+                                   total_flux=self.total_flux)
                 app.run()
                 # save the last flux
                 app.terminate_slaves()

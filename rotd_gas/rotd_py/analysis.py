@@ -1,5 +1,5 @@
 import numpy as np
-import rotd_math as rotd_math
+import rotd_py.rotd_math as rotd_math
 from scipy.integrate import simps
 
 # This file is used to parse the calculated flux
@@ -64,7 +64,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
         raise ValueError("mc_flux and energy dimension INVALID")
     energy_grid = energy_grid * rotd_math.Kelv
     temperature_grid = temperature_grid * rotd_math.Kelv
-    temper_fac = np.power(temperature_grid, dof_num/2)
+    temper_fac = np.power(temperature_grid, dof_num//2)
     if dof_num % 2:
         temper_fac *= np.sqrt(temperature_grid)
     mc_rate = np.zeros(len(temperature_grid))

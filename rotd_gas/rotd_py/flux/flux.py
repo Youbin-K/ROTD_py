@@ -5,7 +5,7 @@ import rotd_py.rotd_math as rotd_math
 from rotd_py.flux.fluxbase import FluxBase
 import copy
 import os
-from ase.io.trajectory import Trajectory
+import shutil
 min_flux = 1e-99
 # CAUTION! all units are atomic unit
 
@@ -22,7 +22,8 @@ class MultiFlux:
 
     """
 
-    def __init__(self, fluxbase=None, num_faces=1, sample=None, calculator=None):
+    def __init__(self, fluxbase=None, num_faces=1, sample=None,
+                 calculator=None):
 
         if fluxbase is None:
             raise ValueError("The flux base cannot be NONE, the information\
@@ -43,7 +44,8 @@ class MultiFlux:
                                       flux_type=fluxbase.flux_type,
                                       flux_parameter=fluxbase._flux_parameter,
                                       sample=copy.deepcopy(sample),
-                                      calculator=calculator
+                                      calculator=calculator,
+
                                       )
             self.flux_array[i].sample.div_surface.set_face(i)
 
@@ -122,7 +124,7 @@ class MultiFlux:
 
         # check whether surface sampling is needed or not
         is_surf_smp = False
-        smp_num = np.zeros(self.num_faces)
+        smp_num = np.zeros(self.num_faces)#, dtype=int)
         for i in range(0, self.num_faces):
             smp = proj_smp_num * self.flux_array[i].vol_fluctuation(min_index, 0)\
                 / tot_vol_var - self.flux_array[i].tot_smp()
@@ -142,10 +144,20 @@ class MultiFlux:
         converged
         sid is the index of current dividing surface
         """
+        current_path = os.getcwd()
+        # commented out, because it deleted all other surface_n files
+        # try:
+        #     shutil.rmtree(current_path + "/" + "output")
+        # except FileNotFoundError:
+        #     pass
+        try:
+            os.mkdir(current_path + "/" + "output")
+        except FileExistsError:
+            pass
         filename = "surface_"+str(sid)+".dat"
         if os.path.exists(filename):
             print("The file  %s is already exists, REWRITE it!" % (filename))
-        f = open(filename, 'w')
+        f = open("output" + "/" + filename, 'w')
 
         symbols = self.flux_array[0].sample.configuration.get_chemical_symbols()
         for face in range(self.num_faces):
@@ -157,7 +169,7 @@ class MultiFlux:
             f.write("Out of face sampling: %d \n" % (curr_flux.face_smp()))
             f.write("Dummy sampling: %d \n" % (curr_flux.fake_smp()))
             # here out put unit with kcal/mol
-            f.write("Minimum energy: %.5f\n" % (curr_flux.ㅇ[0]/rotd_math.Kcal))
+            f.write("Minimum energy: %.5f\n" % (curr_flux.min_energy[0]/rotd_math.Kcal))
             f.write("Minimum energy geometry:\n")
             for i in range(0, len(curr_flux.min_geometry[0])):
                 item = curr_flux.min_geometry[0][i]
@@ -224,8 +236,8 @@ class Flux(FluxBase):
                                    flux_parameter=flux_parameter)
         self.sample = sample
         self.calculator = calculator
+        self.job_id = None
         self.energy_size = sample.energy_size
-
         self.set_calculation()
         self.set_vol_num_max()
         self.set_fail_num_max()
@@ -346,8 +358,9 @@ class Flux(FluxBase):
 
         temp = self.temp_sum[temp_index, j]/float(self.acct_smp())
 
-        fluc = np.sqrt(self.temp_var[temp_index, j]/float(self.acct_smp()) -
-                       np.power(temp, 2)) * self.pot_smp()/self.tot_smp()
+        fluc = np.sqrt(float(self.temp_var[temp_index, j])/float(self.acct_smp()) -
+                       float(np.power(temp, 2))) * float(self.pot_smp())/float(self.tot_smp())
+        # can return NaN, need a solution
         return fluc
 
     def vol_fluctuation(self, i, j):
@@ -356,7 +369,7 @@ class Flux(FluxBase):
             return 0
 
         fluc = self.temp_sum[i, j]/float(self.acct_smp()) * \
-            np.sqrt(self.space_smp()*self.pot_smp()) / self.tot_smp()
+            np.sqrt(float(self.space_smp())*float(self.pot_smp())) / self.tot_smp()
 
         return fluc
 
@@ -375,11 +388,13 @@ class Flux(FluxBase):
             elif tag == SampTag.SAMP_FACE_OUT:
                 self._face_num += 1
                 continue
+            elif tag == SampTag.SAMP_SUCCESS:  # new addition
+                pass
             else:
                 print("rand_pos status unknow, EXITING\n")
                 exit()
 
-    def run(self, samp_len):
+    def run(self, samp_len, flux_id=0):
         """This function is used for flux calculation
 
         Parameters
@@ -416,7 +431,7 @@ class Flux(FluxBase):
                 break
 
             """
-            # tag is a integer represent the sampling info,
+            # tag is an integer represent the sampling info,
               weight, is a float which is a statistic weight that will be used
               in the flux calculation
               energy, is an array of energy, which includes all
@@ -440,7 +455,7 @@ class Flux(FluxBase):
                 exit()
 
             # now check energy:
-            energy = self.sample.get_energies(self.calculator)
+            energy = self.sample.get_energies(self.calculator, flux_id)
             print("flux: %f" % (energy[0]))
             if energy is None:
                 fs_num += 1
@@ -455,12 +470,9 @@ class Flux(FluxBase):
 
             # now update the minimum energy
             for i in range(0, self.energy_size):
-                traj = Trajectory('all_config.traj', 'a', self.sample.configuration)
-                traj.write()
                 if energy[i] < self.min_energy[i]:
                     self.min_energy[i] = energy[i]
                     self.min_geometry[i] = self.sample.configuration.get_positions()
-            traj.close()
 
             as_num += 1
             # calculate the flux.
@@ -495,7 +507,7 @@ class Flux(FluxBase):
                     continue
 
                 if self.flux_type != 'EJ-RESOLVED':
-                    raise ValueError("INVALID flux type%s" % (self.flux_type))
+                    raise ValueError("INVALID flux type %s" % (self.flux_type))
                 # you need to figure out what is mc stat weight
                 for en_ind in range(0, len(self.energy_grid)):  # enegy cycle
                     for am_ind in range(0, len(self.angular_grid)):  # angular momentum cycle

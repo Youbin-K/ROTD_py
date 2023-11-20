@@ -57,7 +57,7 @@ class Surface(object):
 
         self.pivotpoints = pivotpoints
         self.distances = distances
-        self.num_pivot_points = [len(self.pivotpoints[str(i)])
+        self.num_pivot_points = [len(self.pivotpoints[f'{i}'])
                                  for i in range(0, len(self.pivotpoints))]
         self.num_faces = 1
         for i in range(0, len(self.num_pivot_points)):
@@ -102,8 +102,8 @@ class Surface(object):
         """
 
         i, j = self.pivot_index(face)
-        #print("pivot i = ",i)
-        #print("pivot j = ",j)
+        #print(i)
+        #print(j)
         if frag_index == 0:
             return self.pivotpoints['0'][i]
         else:

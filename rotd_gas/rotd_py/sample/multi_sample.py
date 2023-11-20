@@ -11,7 +11,7 @@ class MultiSample(Sample):
     For MultiSample, there is no sample constraint area. In another word,
     both center of mass vector and the fragments themselves can rotate in any
     direction.
-    For current usage, this class only consider 2 fragments system.
+    For current usage, this class only considers 2 fragments system.
 
 
     """
@@ -36,18 +36,13 @@ class MultiSample(Sample):
         emass = self.fragments[0].get_total_mass() * mfactor[0]
 
         # random orient a vector between the center of mass of two fragments
-        com_vec = rotd_math.random_orient(3)  # 1st step
-        print ("com_vec", com_vec) # 3 array
+        com_vec = rotd_math.random_orient(3)
 
         # random rotate each fragment based on random generated solid angle.
         for frag in self.fragments:
-            orient = rotd_math.random_orient(frag.get_ang_size()) # Random rotate 2 fragment
+            orient = rotd_math.random_orient(frag.get_ang_size())
             frag.set_ang_pos(orient)
             frag.set_rotation_matrix()
-            #print ("frag in loop", frag)
-        print ("frag", frag) # Check whether nonlinear, linear & ch3 & pbc
-        print ("orient", orient) # 4 array
-        #print (frag.set_rotation_matrix())
 
         # get the pivot points coordinates for current face in the laboratory frame
         lfactor = 1.0
@@ -68,7 +63,7 @@ class MultiSample(Sample):
         # now set the reaction coordinate vector
         lf_com = com_vec * self.div_surface.get_dist(curr_face) - lf_pivot[0] + lf_pivot[1]
         new_positions = []
-        # update the fragments' lab frame position
+        # update the fragments to lab frame position
         # and get the configuration as a whole
         for i in range(0, 2):
             # update COM positions
@@ -125,7 +120,7 @@ class MultiSample(Sample):
         return SampTag.SAMP_SUCCESS
 
     def labframe_pivot_point(self, frag_index, com_vec, lf_pivot, lfactor):
-        """Converting the pivot point coordinates in the lab frame coordinates.
+        """Converting the pivot point coordinates to lab frame coordinates.
 
         Parameters
         ----------
@@ -141,7 +136,7 @@ class MultiSample(Sample):
         Returns
         -------
         type Boolean
-            whether this sample is valid or not
+            check whether this sample is valid or not
 
         """
 

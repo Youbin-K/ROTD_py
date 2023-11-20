@@ -50,7 +50,7 @@ class Nonlinear(Fragment):
         mfo = self.get_rotation_matrix()
         orig_mf_pos = self.get_molframe_positions()
         new_com = self.get_labframe_com()
-        for i in range(0, self.get_number_of_atoms()):
+        for i in range(0, self.get_global_number_of_atoms()):
             rel_pos = np.dot(orig_mf_pos[i], mfo)
             for j in range(0, 3):
                 self.frag_array['lab_frame_positions'][i][j] = rel_pos[j] + new_com[j]

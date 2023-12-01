@@ -25,7 +25,7 @@ class Molpro:
         and sent back to sample.py
 
         """
-        with open('../molpro.tpl', 'r') as f:
+        with open('../../molpro.tpl', 'r') as f:
             self.tpl = f.read()
         self.name = label
         self.mol = mol

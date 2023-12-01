@@ -39,11 +39,12 @@ class Sample(object):
     scan_trust: 1D energies (kcal) along the dissociation computed at the highest affordable level
     """
 
-    def __init__(self, fragments=None, dividing_surface=None,
+    def __init__(self, name=None, fragments=None, dividing_surface=None,
                  min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
                  r_sample=None, e_sample=None, r_trust=None, e_trust=None,
                  scan_ref=None):
         __metaclass__ = ABCMeta
+        self.name=name
         # list of fragments
 
         self.fragments = fragments
@@ -97,8 +98,9 @@ class Sample(object):
         return e
 
     def set_scan_ref(self, scan_ref):
+        self.scan_ref = []
         for scr in scan_ref:
-            scr = [scr[0], scr[1]+len(self.fragments[0].positions)]
+            self.scan_ref.append([scr[0], scr[1]+len(self.fragments[0].positions)])
 
     def get_dividing_surface(self):
         return self.div_surface
@@ -199,7 +201,7 @@ class Sample(object):
         """
         pass
 
-    def get_energies(self, calculator, flux_id=0):
+    def get_energies(self, calculator, face_id=0, flux_id=0):
 
         # return absolute energy in e
         # This is a temporary fix specific for using Amp calculator as we are not able to
@@ -211,7 +213,7 @@ class Sample(object):
             energy = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)
         elif calculator['code'] == 'molpro':
-            label = f'surf{self.div_surface.surf_id}_samp{flux_id}'
+            label = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
             mp = Molpro(label, self.configuration, calculator['scratch'],
                         calculator['processors'])
             mp.create_input()

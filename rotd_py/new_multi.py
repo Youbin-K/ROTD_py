@@ -385,7 +385,7 @@ class Multi(object):
                             {'status': status, 'surf_id': surf_id,
                                 'samp_id': samp_id})
             except OperationalError:
-                for i in range(3)
+                for i in range(3):
                     try:
                         time.sleep(0.2)
                         cursor.execute('UPDATE fluxes SET status = :status WHERE '
@@ -395,7 +395,7 @@ class Multi(object):
                         break
                     except OperationalError:
                         pass
-                    
+
     def del_db_job(self, job):
         _0, _1, surf_id, face_id, _4, samp_id, _6 = job
         with connect(f'Surface_{surf_id}/rotd.db', timeout=60) as cursor:

@@ -153,7 +153,7 @@ class Multi(object):
 
 
         while not all(self.converged):
-            if len(self.work_queue) >= jobs_submitted:
+            if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
                 if jobs_submitted == 500:
@@ -256,21 +256,9 @@ class Multi(object):
             time.sleep(5)
             self.check_running_jobs()
 
-        # Create a db entry
+        # Serialize the job to be picked-up by the sample
         with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
             pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
-        # srl_flux = pickle.dumps(flux)  # Serialize the flux object
-        # sql_cmd = "INSERT INTO fluxes VALUES (:flux_tag, :flux, :surf_id, :face_id, " \
-        #           ":samp_len, :samp_id, :status)"
-        # with connect(f'Surface_{surf_id}/rotd.db', timeout=60) as cursor:
-        #     cursor.execute(sql_cmd, {'flux_tag': int_flux_tag,
-        #                              'flux': srl_flux,
-        #                              'surf_id': surf_id,
-        #                              'face_id': face_id,
-        #                              'samp_len': samp_len,
-        #                              'samp_id': samp_id,
-        #                              'status': 'RUNNING'
-        #                              })
 
         # Launch the job
         os.chdir(f'Surface_{surf_id}/jobs')
@@ -326,85 +314,57 @@ class Multi(object):
 
     def check_job_status(self, job):
         flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = job
-        # Check if the job is in the database:
-        # with connect(f'Surface_{surf_id}/rotd.db', timeout=60) as cursor:
-        #     sql_cmd = 'SELECT * FROM fluxes WHERE surf_id=? AND face_id=? AND samp_id=?'
-        #     rows = cursor.execute(sql_cmd, (surf_id, face_id, samp_id)).fetchall()
-        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
-            with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
-                pickle_job = pickle.load(pkl_file)
-            db_status = pickle_job[6]
-            db_flux = pickle_job[1]
-            # Check if the data from the db is usable.
-            if len(db_flux.energy_grid) != len(flux.energy_grid) \
-                or len(db_flux.temp_grid) != len(flux.temp_grid) \
-                or len(db_flux.angular_grid) != len(flux.angular_grid) \
-                or not (db_flux.energy_grid == flux.energy_grid).all() \
-                or not (db_flux.temp_grid == flux.temp_grid).all() \
-                or not (db_flux.angular_grid == flux.angular_grid).all():
-                self.logger.warning('The database entries have points calculated with '
-                                'different grids. Unable to use them with the current '
-                                'calculation.')
-                return job
-            # Check if the job is actually running.
-            if db_status.upper() == 'RUNNING':
-                out, _ = Popen(self.chk_cmd.format(job_id=flux.job_id),
-                               shell=True, stdout=PIPE, stderr=PIPE).communicate()
-                if out:
-                    for line in out.decode().split('\n'):
-                        if 'JobState' in line:
-                            queue_status = re.split('\W+', line)[2].upper()
-                            if queue_status == 'RUNNING' or queue_status == 'PENDING':
-                                return flux_tag, flux, surf_id, face_id, samp_len, \
-                                       samp_id, "RUNNING"
-                            elif queue_status == 'COMPLETED':
-                                return flux_tag, db_flux, surf_id, face_id,\
-                                       samp_len, samp_id, "NEWLY FINISHED"
-                            elif queue_status == 'FAILED':
-                                return flux_tag, flux, surf_id, face_id, samp_len, \
-                                       samp_id, "FAILED"
-                            break
-                else:
-                    return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "FAILED"
-            else:
-                return flux_tag, db_flux, surf_id, face_id, samp_len, samp_id, "NEWLY FINISHED"
+        while os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
+            try:
+                with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
+                    pickle_job = pickle.load(pkl_file)
+                break
+            except EOFError:
+                self.logger.debug(f'Unsuccesful opening of Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
+        db_status = pickle_job[6]
+        db_flux = pickle_job[1]
+        # Check if the data from the db is usable.
+        if len(db_flux.energy_grid) != len(flux.energy_grid) \
+            or len(db_flux.temp_grid) != len(flux.temp_grid) \
+            or len(db_flux.angular_grid) != len(flux.angular_grid) \
+            or not (db_flux.energy_grid == flux.energy_grid).all() \
+            or not (db_flux.temp_grid == flux.temp_grid).all() \
+            or not (db_flux.angular_grid == flux.angular_grid).all():
+            self.logger.warning('The database entries have points calculated with '
+                            'different grids. Unable to use them with the current '
+                            'calculation.')
+            return job
+        # Check if the job is actually running.
+        if db_status.upper() == 'RUNNING':
+            out, _ = Popen(self.chk_cmd.format(job_id=flux.job_id),
+                            shell=True, stdout=PIPE, stderr=PIPE).communicate()
+            if out:
+                for line in out.decode().split('\n'):
+                    if 'JobState' in line:
+                        queue_status = re.split('\W+', line)[2].upper()
+                        if queue_status == 'RUNNING' or queue_status == 'PENDING':
+                            return flux_tag, flux, surf_id, face_id, samp_len, \
+                                    samp_id, "RUNNING"
+                        elif queue_status == 'COMPLETED':
+                            return flux_tag, db_flux, surf_id, face_id,\
+                                    samp_len, samp_id, "NEWLY FINISHED"
+                        elif queue_status == 'FAILED':
+                            return flux_tag, flux, surf_id, face_id, samp_len, \
+                                    samp_id, "FAILED"
+                        break
+            else:
+                return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "FAILED"
+        else:
+            return flux_tag, db_flux, surf_id, face_id, samp_len, samp_id, "NEWLY FINISHED"
 
     def update_db_job_status(self, job, status):
         flux_tag, flux, surf_id, face_id, samp_len, samp_id, old_status = job
         with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
             pickle.dump([flux_tag, flux, surf_id, face_id, samp_len, samp_id, status], pkl_file)
-        # with connect(f'Surface_{surf_id}/rotd.db', timeout=60) as cursor:
-        #     try:
-        #         cursor.execute('UPDATE fluxes SET status = :status WHERE '
-        #                     'surf_id=:surf_id? AND face_id=:face_id? AND samp_id=:samp_id',
-        #                     {'status': status, 'surf_id': surf_id,
-        #                         'samp_id': samp_id})
-        #     except OperationalError:
-        #         for i in range(3):
-        #             try:
-        #                 time.sleep(0.2)
-        #                 cursor.execute('UPDATE fluxes SET status = :status WHERE '
-        #                             'surf_id=:surf_id? AND face_id=:face_id? AND samp_id=:samp_id',
-        #                             {'status': status, 'surf_id': surf_id,
-        #                                 'samp_id': samp_id})
-        #                 break
-        #             except OperationalError:
-        #                 pass
+
 
     def del_db_job(self, job):
         _0, _1, surf_id, face_id, _4, samp_id, _6 = job
         os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
-        # with connect(f'Surface_{surf_id}/rotd.db', timeout=60) as cursor:
-        #     sql_cmd = 'DELETE FROM fluxes WHERE surf_id=? AND face_id=? AND samp_id=?'
-        #     try:
-        #         cursor.execute(sql_cmd, (surf_id, face_id, samp_id))
-        #     except OperationalError:
-        #         for i in range(3):
-        #             try:
-        #                 time.sleep(0.2)
-        #                 cursor.execute(sql_cmd, (surf_id, face_id, samp_id))
-        #                 break
-        #             except OperationalError:
-        #                 pass 

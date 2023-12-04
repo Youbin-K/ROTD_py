@@ -1,6 +1,7 @@
 
 py_tpl_str = """from sqlite3 import connect
 import pickle
+import os
 
 from rotd_py.system import FluxTag
 

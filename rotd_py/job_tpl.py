@@ -8,10 +8,15 @@ surf_id = {surf_id}
 face_id = {face_id}
 samp_id = {samp_id}
 
-with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
-    pickle_job = pickle.load(pkl_file)
+while os.path.isfile(f'surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
+    try:
+        with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
+            pickle_job = pickle.load(pkl_file)
+        break
+    except EOFError:
+        self.logger.debug(f'Unsuccesful opening of Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
 
-# Transform db data into Flux-type data.
+# Import serialised job from rotdPy workflow.
 int_flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = pickle_job
 flux_tag = FluxTag(int_flux_tag)
 

@@ -67,13 +67,13 @@ class Sample(object):
         """Function that takes scan relative energies in Kcal
         and returns a spline corresponding to the 1d correction in eV."""
         if r_sample == None or not isinstance(r_sample, list):
-            r_sample == [0.0, 25.0]
+            r_sample = [0.0,1.,2.,3.,4.]
         if r_trust == None or not isinstance(r_trust, list):
-            r_trust == [0.0, 25.0]
+            r_trust = [0.0,1.,2.,3.,4.]
         if e_sample == None or not isinstance(e_sample, list):
-            e_sample == [0, 0]
+            e_sample = [0., 0., 0., 0., 0.]
         if e_trust == None or not isinstance(e_trust, list):
-            e_trust == [0, 0]
+            e_trust = [0., 0., 0., 0., 0.]
         
         x_spln_1d_correction = np.arange(min(r_sample + r_trust), max(r_sample + r_trust), 0.01)
         

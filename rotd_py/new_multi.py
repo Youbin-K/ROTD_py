@@ -13,7 +13,6 @@ from rotd_py.system import FluxTag
 from rotd_py.job_tpl import py_tpl_str
 
 from rotd_py.config_log import config_log
-#global self.logger
 
 class Multi(object):
     """

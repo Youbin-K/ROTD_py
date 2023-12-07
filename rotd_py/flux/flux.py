@@ -387,7 +387,8 @@ class Flux(FluxBase):
 
     def run_surf(self, samp_len):
 
-        for i in range(0, samp_len):
+        #Round up and transform as integer samp_len
+        for i in range(0, np.ceil(samp_len).astype(int)):
 
             tag = self.sample.generate_configuration()
 

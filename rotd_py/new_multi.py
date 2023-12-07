@@ -169,7 +169,7 @@ class Multi(object):
                 #     jobs_submitted = 0
                 if initial_submission:
                     initial_submission -= 1
-            if not initial_submission and len(self.work_queue) < self.calculator['max_jobs']/2:
+            if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
                 self.check_running_jobs()
             for job in reversed(self.newly_finished_jobs):
                 # update flux
@@ -291,7 +291,7 @@ class Multi(object):
             elif status == 'FAILED':
                 self.del_db_job(job)
             while len(self.running_jobs) >= self.calculator['max_jobs']:
-                time.sleep(5)
+                time.sleep(1)
                 self.check_running_jobs()
 
             # Serialize the job to be picked-up by the sample

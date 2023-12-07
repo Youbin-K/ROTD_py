@@ -264,7 +264,8 @@ class Multi(object):
                 with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                     cursor.execute('UPDATE rotdpy_saved_runs SET multi_flux=:multi_flux, sample_list=:sample_list, flux_base=:flux_base '
                         'WHERE surf_id = :surf_id', \
-                        {'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
+                        {'surf_id': surf.surf_id,
+                        'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
                         'sample_list': pickle.dumps(self.flux_indexes[int(surf.surf_id)]),
                         'flux_base': pickle.dumps(self.fluxbase)
                                                     })

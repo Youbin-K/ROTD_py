@@ -46,27 +46,50 @@ class Multi(object):
         self.newly_finished_jobs = []
         self.show_grid_warn = True
         num_faces = 0
+        self.workdir = os.getcwd()
+        if not os.path.isdir(self.sample.name):
+            os.mkdir(self.sample.name)
+        os.chdir(self.sample.name)
+        self.logger = config_log('rotdpy')
+        os.chdir(self.workdir)
         if self.dividing_surfaces is not None:
             num_faces = [surface.get_num_faces() for surface in self.dividing_surfaces]
         if selected_faces == None:
             self.selected_faces = [range(surface.get_num_faces()) for surface in self.dividing_surfaces]
         else: #TODO: add a check on the shape of the user input selected faces
             self.selected_faces = selected_faces 
+        self.flux_indexes = []
+        self.converged = []
         for index, surf in enumerate(self.dividing_surfaces):
             surf.surf_id = str(index)
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
-            self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
-                                                 num_faces=num_faces[index],
-                                                 selected_faces=self.selected_faces[index],
-                                                 sample=indivi_sample,
-                                                 calculator=self.calculator)
-        self.surf_id_gen = (str(surf.surf_id) for surf in self.dividing_surfaces)
-        self.ref_flux = copy.deepcopy(self.total_flux) 
+            #Restart
+            if os.path.isfile(f"rotdPy_restart.db"):
+                with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+                    sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
+                    rows = cursor.execute(sql_cmd, (surf.surf_id)).fetchall()
+                if rows:
+                    surf_id, self.total_flux[surf.surf_id], sample_list, old_flux_base = rows[-1]
+                    self.flux_indexes.append(sample_list)
+                    if old_flux_base.flux_parameter['flux_rel_err'] == self.fluxbase.flux_parameter['flux_rel_err'] and \
+                    os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat'):
+                        self.converged.append(True)
+                    else:
+                        self.converged.append(False)
+            else:
+                self.flux_indexes.append([])
+                self.converged.append(False)
+                self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
+                                                    num_faces=num_faces[index],
+                                                    selected_faces=self.selected_faces[index],
+                                                    sample=indivi_sample,
+                                                    calculator=self.calculator)
+                for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
+                    self.flux_indexes[int(surf.surf_id)].append(1)
+        self.ref_flux = copy.deepcopy(self.total_flux)
+        #Submission script template
         self.py_tpl_str = py_tpl_str
-        self.workdir = os.getcwd()
-        if not os.path.isdir(self.sample.name):
-            os.mkdir(self.sample.name)
         if self.calculator['queue'].casefold() == 'slurm':
             self.sub_cmd = 'sbatch'
             self.chk_cmd = 'scontrol show jobid -d {job_id}'  
@@ -82,15 +105,10 @@ class Multi(object):
                 print("Could not find qu.tpl: slurm submission template")
                 exit()
         os.chdir(f"{self.workdir}/{self.sample.name}")
-        self.logger = config_log('rotdpy')
         for surface_id in range(0, len(self.dividing_surfaces)):
             if not os.path.isdir(f'Surface_{surface_id}'):
                 os.mkdir(f'Surface_{surface_id}')
             os.chdir(f'Surface_{surface_id}')
-            # with connect(f'rotd.db', timeout=60) as cursor:
-            #     cursor.execute("CREATE TABLE IF NOT EXISTS fluxes "
-            #                 "(flux_tag int, flux blob, surf_id text, face_id int, "
-            #                 "samp_len int, samp_id int, status text)")
             if not os.path.isdir('jobs'):
                 os.mkdir('jobs')
             os.chdir(f"{self.workdir}/{self.sample.name}")
@@ -102,25 +120,14 @@ class Multi(object):
     def run(self):
 
         os.chdir(self.sample.name)
-        self.logger.info('Starting rotdpy')
+        self.logger.info('Starting rotdpy run')
         first_job = True
         jobs_submitted = 0
         initial_submission = 0
 
-
         """Keep submitting jobs as long as there is work to do"""
         num_surfaces = len(self.total_flux)
-        self.flux_indexes = []
-        self.converged = []
         for surf in self.dividing_surfaces:
-            #test if surface converged
-            #Restart check
-            if os.path.isfile(f"output/Surface_{surf.surf_id}.dat"):
-                self.converged.append(True)
-                continue
-            else:
-                self.converged.append(False)
-            self.flux_indexes.append([])
             curr_flux = self.total_flux[surf.surf_id]  # multiflux
             self.logger.info(f'Information about runs')
             self.logger.info(f'Number of surfaces: {num_surfaces}')
@@ -130,8 +137,6 @@ class Multi(object):
 
             # initialize the calculation for all facets of the surface
             for face_index in range(0, curr_flux.num_faces):
-                
-                self.flux_indexes[int(surf.surf_id)].append(1)
                 flux = copy.deepcopy(curr_flux.flux_array[face_index])
                 if first_job:
                     self.logger.info('The grids are:\n'
@@ -144,7 +149,7 @@ class Multi(object):
                     self.logger.info(f'Skipping face {face_index}')
                     continue
                 for j in range(flux.pot_min()):
-                    self.logger.info(f'Creating job {j} for face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
+                    #self.logger.info(f'Creating job {j} for surface {surf.surf_id} face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
                     self.work_queue.append((FluxTag.FLUX_TAG, flux,
                                             surf.surf_id, face_index, flux.samp_len(), 
                                             self.flux_indexes[int(surf.surf_id)][face_index], 'TO DO'))
@@ -221,6 +226,8 @@ class Multi(object):
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
                     self.total_flux[surf_id].save_file(surf_id)
+                    with open(f'Surface_{surf_id}/converged_total_flux.pkl', 'wb') as pkl_file:
+                        pickle.dump(self.total_flux[surf_id], pkl_file)
                     self.converged[int(surf_id)] = True #TODO: add full converged check
                     self.logger.info(f'Calculations are done for surface {surf_id}')
                 else:
@@ -228,6 +235,32 @@ class Multi(object):
                     raise ValueError("The flux tag is INVALID")
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
+        self.save_run_in_db()
+
+    def save_run_in_db(self):
+        if not os.path.isfile(f'rotdPy_restart.db'):
+            with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+                cursor.execute("CREATE TABLE IF NOT EXISTS rotdpy_saved_runs "
+                            "(surf_id int, multi_flux blob, sample_list blob, flux_base blob)")
+            sql_command = "INSERT INTO rotdpy_saved_runs VALUES "\
+                          "(:surf_id, :multi_flux, :sample_list, :flux_base)"
+            for surf in self.dividing_surfaces:
+                with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+                    cursor.execute(sql_command, {'surf_id': surf.surf_id,
+                                                'multi_flux': pickle.dump(self.total_flux[surf.surf_id]),
+                                                'sample_list': pickle.dump(self.flux_indexes[int(surf.surf_id)]),
+                                                'flux_base': pickle.dump(self.fluxbase)
+                                                })
+        else:
+            with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+                cursor.execute('UPDATE rotdpy_saved_runs SET multi_flux=:multi_flux, sample_list=:sample_list, flux_base=:flux_base '
+                    'WHERE surf_id = :surf_id', \
+                    {'multi_flux': pickle.dump(self.total_flux[surf.surf_id]),
+                      'sample_list': pickle.dump(self.flux_indexes[int(surf.surf_id)]),
+                      'flux_base': pickle.dump(self.fluxbase)
+                                                })
+
+            
 
 
     def submit_work(self, job, procs=1):
@@ -348,6 +381,12 @@ class Multi(object):
                             return flux_tag, flux, surf_id, face_id, samp_len, \
                                     samp_id, "RUNNING"
                         elif queue_status == 'COMPLETED':
+                            #Delete files when job is finished
+                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
                             return flux_tag, db_flux, surf_id, face_id,\
                                     samp_len, samp_id, "NEWLY FINISHED"
                         elif queue_status == 'FAILED':

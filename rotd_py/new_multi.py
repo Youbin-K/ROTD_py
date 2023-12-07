@@ -7,6 +7,7 @@ import pickle
 import shutil
 from subprocess import Popen, PIPE
 import re
+from itertools import compress
 
 from rotd_py.flux.flux import MultiFlux
 from rotd_py.system import FluxTag
@@ -64,14 +65,17 @@ class Multi(object):
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
             #Restart
-            if os.path.isfile(f"rotdPy_restart.db"):
-                with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+            if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
+                with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
                     sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
                     rows = cursor.execute(sql_cmd, (surf.surf_id)).fetchall()
                 if rows:
-                    surf_id, self.total_flux[surf.surf_id], sample_list, old_flux_base = rows[-1]
-                    self.flux_indexes.append(sample_list)
-                    if old_flux_base.flux_parameter['flux_rel_err'] == self.fluxbase.flux_parameter['flux_rel_err'] and \
+                    surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
+                    self.flux_indexes.append(pickle.loads(sample_list))
+                    self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
+                    old_flux_base = pickle.loads(pkl_old_flux_base)
+                    #Surface is converged if it has an output, and the same or lower convergence threshold
+                    if old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
                     os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat'):
                         self.converged.append(True)
                     else:
@@ -126,7 +130,7 @@ class Multi(object):
 
         """Keep submitting jobs as long as there is work to do"""
         num_surfaces = len(self.total_flux)
-        for surf in self.dividing_surfaces:
+        for surf in list(compress(self.dividing_surfaces, [not conv for conv in self.converged])):
             curr_flux = self.total_flux[surf.surf_id]  # multiflux
             self.logger.info(f'Information about runs')
             self.logger.info(f'Number of surfaces: {num_surfaces}')
@@ -160,9 +164,9 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                if jobs_submitted == 500:
-                    self.work_queue = self.work_queue[499:]
-                    jobs_submitted = 0
+                # if jobs_submitted == 1000:
+                #     self.work_queue = self.work_queue[999:]
+                #     jobs_submitted = 0
                 if initial_submission:
                     initial_submission -= 1
             if not initial_submission and len(self.work_queue) < self.calculator['max_jobs']/2:
@@ -170,11 +174,13 @@ class Multi(object):
             for job in reversed(self.newly_finished_jobs):
                 # update flux
                 flux_tag, job_flux, surf_id, face_id, samp_len, samp_id, status = job
-                self.logger.debug(f'{flux_tag}, surf {surf_id}, face {face_id}, sample {samp_id} {status}')
+                #ßself.logger.debug(f'{flux_tag}, surf {surf_id}, face {face_id}, sample {samp_id} {status}')
                 if self.converged[int(surf_id)]:
+                    self.newly_finished_jobs.remove(job)
                     continue
                 face_index = job_flux.sample.div_surface.get_curr_face()
                 if face_index not in self.selected_faces[int(surf_id)]:  # HACKED !!!!!
+                    self.newly_finished_jobs.remove(job)
                     continue
                 curr_multi_flux = self.total_flux[surf_id]
                 curr_flux = curr_multi_flux.flux_array[face_index]  # multiflux
@@ -246,21 +252,19 @@ class Multi(object):
             for surf in self.dividing_surfaces:
                 with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                     cursor.execute(sql_command, {'surf_id': surf.surf_id,
-                                                'multi_flux': pickle.dump(self.total_flux[surf.surf_id]),
-                                                'sample_list': pickle.dump(self.flux_indexes[int(surf.surf_id)]),
-                                                'flux_base': pickle.dump(self.fluxbase)
+                                                'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
+                                                'sample_list': pickle.dumps(self.flux_indexes[int(surf.surf_id)]),
+                                                'flux_base': pickle.dumps(self.fluxbase)
                                                 })
         else:
-            with connect(f'rotdPy_restart.db', timeout=60) as cursor:
-                cursor.execute('UPDATE rotdpy_saved_runs SET multi_flux=:multi_flux, sample_list=:sample_list, flux_base=:flux_base '
-                    'WHERE surf_id = :surf_id', \
-                    {'multi_flux': pickle.dump(self.total_flux[surf.surf_id]),
-                      'sample_list': pickle.dump(self.flux_indexes[int(surf.surf_id)]),
-                      'flux_base': pickle.dump(self.fluxbase)
-                                                })
-
-            
-
+            for surf in self.dividing_surfaces:
+                with connect(f'rotdPy_restart.db', timeout=60) as cursor:
+                    cursor.execute('UPDATE rotdpy_saved_runs SET multi_flux=:multi_flux, sample_list=:sample_list, flux_base=:flux_base '
+                        'WHERE surf_id = :surf_id', \
+                        {'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
+                        'sample_list': pickle.dumps(self.flux_indexes[int(surf.surf_id)]),
+                        'flux_base': pickle.dumps(self.fluxbase)
+                                                    })
 
     def submit_work(self, job, procs=1):
         """
@@ -276,50 +280,52 @@ class Multi(object):
         # Initial checks of job db/queue status and maximum jobs limit.
         job = self.check_job_status(job)
         flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = job
-        if status == 'NEWLY FINISHED' and job not in self.newly_finished_jobs:
-            self.newly_finished_jobs.append(job)
-            return
-        elif status == 'RUNNING':
+        #Avoid submitting jobs for surfaces already converged if jobs are in the work queue
+        if not self.converged[int(surf_id)]:
+            if status == 'NEWLY FINISHED' and job not in self.newly_finished_jobs:
+                self.newly_finished_jobs.append(job)
+                return
+            elif status == 'RUNNING':
+                self.running_jobs.append(job)
+                return
+            elif status == 'FAILED':
+                self.del_db_job(job)
+            while len(self.running_jobs) >= self.calculator['max_jobs']:
+                time.sleep(5)
+                self.check_running_jobs()
+
+            # Serialize the job to be picked-up by the sample
+            with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
+                pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
+
+            # Launch the job
+            os.chdir(f'Surface_{surf_id}/jobs')
+            with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:
+                py_job_fh.write(self.py_tpl_str.format(surf_id=surf_id,
+                                                    face_id=face_id,
+                                                    samp_id=samp_id))
+            with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.sh', 'w') as qu_job_fh:
+                qu_job_fh.write(self.qu_tpl_str.format(surf_id=surf_id,
+                                                    face_id=face_id,
+                                                    samp_id=samp_id,
+                                                    procs=procs,))
+            stdout, stderr = Popen(f'{self.sub_cmd} surf{surf_id}_face{face_id}_samp{samp_id}.sh',
+                                shell=True, stdout=PIPE,
+                                stderr=PIPE).communicate()
+            stdout, stderr = (std.decode() for std in (stdout, stderr))
+            try:
+                flux.job_id = stdout.split()[3]
+                err = False
+            except IndexError:
+                err = True
+            if err:
+                raise OSError('SLURM does not seem to be installed. Error '
+                            f'message:\n\n{stderr}')
+            os.chdir(f"{self.workdir}/{self.sample.name}")
+
+            # Relocate the job into the running list
+            job = (flux_tag, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING')
             self.running_jobs.append(job)
-            return
-        elif status == 'FAILED':
-            self.del_db_job(job)
-        while len(self.running_jobs) >= self.calculator['max_jobs']:
-            time.sleep(5)
-            self.check_running_jobs()
-
-        # Serialize the job to be picked-up by the sample
-        with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
-            pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
-
-        # Launch the job
-        os.chdir(f'Surface_{surf_id}/jobs')
-        with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:
-            py_job_fh.write(self.py_tpl_str.format(surf_id=surf_id,
-                                                   face_id=face_id,
-                                                   samp_id=samp_id))
-        with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.sh', 'w') as qu_job_fh:
-            qu_job_fh.write(self.qu_tpl_str.format(surf_id=surf_id,
-                                                   face_id=face_id,
-                                                   samp_id=samp_id,
-                                                   procs=procs,))
-        stdout, stderr = Popen(f'{self.sub_cmd} surf{surf_id}_face{face_id}_samp{samp_id}.sh',
-                               shell=True, stdout=PIPE,
-                               stderr=PIPE).communicate()
-        stdout, stderr = (std.decode() for std in (stdout, stderr))
-        try:
-            flux.job_id = stdout.split()[3]
-            err = False
-        except IndexError:
-            err = True
-        if err:
-            raise OSError('SLURM does not seem to be installed. Error '
-                          f'message:\n\n{stderr}')
-        os.chdir(f"{self.workdir}/{self.sample.name}")
-
-        # Relocate the job into the running list
-        job = (flux_tag, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING')
-        self.running_jobs.append(job)
 
 
     def check_running_jobs(self):
@@ -351,7 +357,7 @@ class Multi(object):
                 with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
                     pickle_job = pickle.load(pkl_file)
                 break
-            except EOFError:
+            except:
                 self.logger.debug(f'Unsuccesful opening of Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
@@ -381,11 +387,17 @@ class Multi(object):
                                     samp_id, "RUNNING"
                         elif queue_status == 'COMPLETED':
                             #Delete files when job is finished
-                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
-                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
-                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
-                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
-                            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
+                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
+                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
+                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh'):
+                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
+                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+
                             return flux_tag, db_flux, surf_id, face_id,\
                                     samp_len, samp_id, "NEWLY FINISHED"
                         elif queue_status == 'FAILED':

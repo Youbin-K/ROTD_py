@@ -101,12 +101,16 @@ class Multi(object):
             except:
                 print("Could not find qu.tpl: slurm submission template")
                 exit()
+        elif self.calculator['queue'].casefold() == 'mpi':
+            pass
         if self.calculator['code'].casefold() == 'molpro':
             try:
                 shutil.copy('molpro.tpl', self.sample.name)
             except:
                 print("Could not find qu.tpl: slurm submission template")
                 exit()
+        elif self.calculator['code'][-3:].casefold() == 'amp':
+            pass
         os.chdir(f"{self.workdir}/{self.sample.name}")
         for surface_id in range(0, len(self.dividing_surfaces)):
             if not os.path.isdir(f'Surface_{surface_id}'):
@@ -158,7 +162,6 @@ class Multi(object):
                                             self.flux_indexes[int(surf.surf_id)][face_index], 'TO DO'))
                     self.flux_indexes[int(surf.surf_id)][face_index] += 1
                     initial_submission += 1
-
 
         while not all(self.converged):
             if len(self.work_queue) > jobs_submitted:

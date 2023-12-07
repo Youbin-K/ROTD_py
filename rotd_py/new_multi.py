@@ -68,7 +68,7 @@ class Multi(object):
             if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
                 with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
                     sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
-                    rows = cursor.execute(sql_cmd, (surf.surf_id)).fetchall()
+                    rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
                 if rows:
                     surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
                     self.flux_indexes.append(pickle.loads(sample_list))
@@ -80,6 +80,16 @@ class Multi(object):
                         self.converged.append(True)
                     else:
                         self.converged.append(False)
+                else:
+                    self.flux_indexes.append([])
+                    self.converged.append(False)
+                    self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
+                                                        num_faces=num_faces[index],
+                                                        selected_faces=self.selected_faces[index],
+                                                        sample=indivi_sample,
+                                                        calculator=self.calculator)
+                    for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
+                        self.flux_indexes[int(surf.surf_id)].append(1)
             else:
                 self.flux_indexes.append([])
                 self.converged.append(False)

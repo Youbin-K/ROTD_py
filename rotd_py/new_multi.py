@@ -177,9 +177,9 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                # if jobs_submitted == 1000:
-                #     self.work_queue = self.work_queue[999:]
-                #     jobs_submitted = 0
+                if jobs_submitted == 3000:
+                    self.work_queue = self.work_queue[2999:]
+                    jobs_submitted = 0
                 if initial_submission:
                     initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:

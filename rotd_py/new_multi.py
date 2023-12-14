@@ -8,10 +8,12 @@ import shutil
 from subprocess import Popen, PIPE
 import re
 from itertools import compress
+import numpy as np
 
 from rotd_py.flux.flux import MultiFlux
 from rotd_py.system import FluxTag
 from rotd_py.job_tpl import py_tpl_str
+from rotd_py.analysis import integrate_micro
 
 from rotd_py.config_log import config_log
 
@@ -75,8 +77,10 @@ class Multi(object):
                     self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
                     old_flux_base = pickle.loads(pkl_old_flux_base)
                     #Surface is converged if it has an output, and the same or lower convergence threshold
-                    if old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
-                    os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat'):
+                    if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
+                    (old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
+                     old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
+                     old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min']):
                         self.converged.append(True)
                     else:
                         self.converged.append(False)
@@ -244,8 +248,6 @@ class Multi(object):
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
                     self.total_flux[surf_id].save_file(surf_id)
-                    with open(f'Surface_{surf_id}/converged_total_flux.pkl', 'wb') as pkl_file:
-                        pickle.dump(self.total_flux[surf_id], pkl_file)
                     self.converged[int(surf_id)] = True #TODO: add full converged check
                     self.logger.info(f'Calculations are done for surface {surf_id}')
                 else:
@@ -254,6 +256,79 @@ class Multi(object):
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
         self.save_run_in_db()
+        self.print_rate_constant()
+
+    def print_rate_constant(self):
+        factor = .9
+        multi_flux = {'Canonical': {},
+                      'Microcanonical': {}}
+                    #   'E-J resolved': {}}
+        min_flux = {'Canonical': [],
+                    'Microcanonical': []}
+                    #   'E-J resolved': []}
+        ftype = None
+        flux_origin = {'Canonical': [],
+                       'Microcanonical': []}
+                    #   'E-J resolved': []}
+
+        for surf in self.dividing_surfaces:
+            
+            for key in multi_flux:
+                multi_flux[key][surf.surf_id] = []
+                # min_flux[key][surf.surf_id] = []
+            # Collect data from the output
+            with open(f'output/surface_{surf.surf_id}.dat', 'r') as f:
+                recording = False
+                for line in f.readlines():
+                    if line.startswith('Face'):
+                        face = int(line.split()[1])
+                        continue
+                    elif line.startswith('Canonical:'):
+                        ftype = 'Canonical'
+                        recording = True
+                        continue
+                    elif line.startswith('Microcanonical:'):
+                        recording = True
+                        ftype = 'Microcanonical'
+                        continue
+                    elif line.startswith('E-J resolved:'):
+                        ftype = None
+                        recording = False
+                        break
+                    if not recording:
+                        continue
+                    if face == 0:
+                        multi_flux[ftype][surf.surf_id].append(0.)
+                        if surf == self.dividing_surfaces[0]:
+                            min_flux[ftype].append(np.inf)
+
+                    #Sum-up the flux of all faces
+                    multi_flux[ftype][surf.surf_id][-1] += float(line.split()[1])*factor
+            #Save surface flux if minimum for a given temperature
+            for temp_index in range(len(self.fluxbase.temp_grid)):
+                #Initialize flux_origin, which saves from which surface the flux is coming from
+                if len(flux_origin['Canonical']) < len(self.fluxbase.temp_grid):
+                    flux_origin['Canonical'].append(surf.surf_id,)
+                if multi_flux['Canonical'][surf.surf_id][temp_index] < min_flux['Canonical'][temp_index]:
+                    min_flux['Canonical'][temp_index] = multi_flux['Canonical'][surf.surf_id][temp_index]
+                    flux_origin['Canonical'][temp_index] = surf.surf_id
+            #Save surface flux if minimum for a given energy
+            for energy_index in range(len(self.fluxbase.energy_grid)):
+                #Initialize flux_origin, which saves from which surface the flux is coming from
+                if len(flux_origin['Microcanonical']) < len(self.fluxbase.energy_grid):
+                    flux_origin['Microcanonical'].append(surf.surf_id,)
+                if multi_flux['Microcanonical'][surf.surf_id][energy_index] < min_flux['Microcanonical'][energy_index]:
+                    min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
+                    flux_origin['Microcanonical'][energy_index] = surf.surf_id
+
+        mc_rate0 = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
+        for mr in range(len(mc_rate0)):
+            print(f"{self.fluxbase.temp_grid[mr]:.2}\t{mc_rate0[mr]:.2e}\t{flux_origin['Microcanonical'][mr]}")
+        # efl0 = zip(egrid, minflux)
+        # with open('minflux', 'w') as f:
+        #     for e, fl in efl0:  # convert energy to cm-1
+        #         print(f'{(e*0.6950302506112777):.4e} {(fl*612.6e11):.4e}')
+        #         f.write(f'{(e*0.6950302506112777):.2e} {(fl*612.6e11):.2e}\n')
 
     def save_run_in_db(self):
         if not os.path.isfile(f'rotdPy_restart.db'):
@@ -371,8 +446,22 @@ class Multi(object):
                 with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
                     pickle_job = pickle.load(pkl_file)
                 break
-            except:
-                self.logger.debug(f'Unsuccesful opening of Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
+            except EOFError:
+                self.logger.debug(f'EOFError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
+            except UnpicklingError:
+                time.sleep(0.1)
+                for i in range(3):
+                    self.logger.debug(f'UnpicklingError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
+                    try:
+                        with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
+                            pickle_job = pickle.load(pkl_file)
+                        break
+                    except:
+                        time.sleep(0.1)
+                        if i == 2:
+                            self.del_db_job(job)
+                            return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
+                break
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
         db_status = pickle_job[6]
@@ -401,17 +490,7 @@ class Multi(object):
                                     samp_id, "RUNNING"
                         elif queue_status == 'COMPLETED':
                             #Delete files when job is finished
-                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
-                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
-                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
-                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
-                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
-                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
-                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh'):
-                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
-                            if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
-                                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
-
+                            self.del_db_job(job)
                             return flux_tag, db_flux, surf_id, face_id,\
                                     samp_len, samp_id, "NEWLY FINISHED"
                         elif queue_status == 'FAILED':
@@ -431,4 +510,13 @@ class Multi(object):
 
     def del_db_job(self, job):
         _0, _1, surf_id, face_id, _4, samp_id, _6 = job
-        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
+            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
+            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
+            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh'):
+            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
+            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')

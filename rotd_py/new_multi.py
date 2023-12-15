@@ -9,11 +9,13 @@ from subprocess import Popen, PIPE
 import re
 from itertools import compress
 import numpy as np
+import ase
 
 from rotd_py.flux.flux import MultiFlux
 from rotd_py.system import FluxTag
 from rotd_py.job_tpl import py_tpl_str
 from rotd_py.analysis import integrate_micro
+from rotd_py.analysis import create_matplotlib_graph
 
 from rotd_py.config_log import config_log
 
@@ -258,7 +260,7 @@ class Multi(object):
         self.save_run_in_db()
         self.print_rate_constant()
 
-    def print_rate_constant(self):
+    def print_rate_constant(self, ignore_surf_id=None, scan_ref=None):
         factor = .9
         multi_flux = {'Canonical': {},
                       'Microcanonical': {}}
@@ -270,18 +272,39 @@ class Multi(object):
         flux_origin = {'Canonical': [],
                        'Microcanonical': []}
                     #   'E-J resolved': []}
+        
+        if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
+            ignore_surf_id = []
+
+        if scan_ref == None:
+            scan_ref = self.sample.scan_ref
+
+        min_energies = []
+        min_energies_dist = []
 
         for surf in self.dividing_surfaces:
             
-            for key in multi_flux:
-                multi_flux[key][surf.surf_id] = []
-                # min_flux[key][surf.surf_id] = []
+
+            if surf.surf_id not in ignore_surf_id:
+                for key in multi_flux :
+                    multi_flux[key][surf.surf_id] = []
+            min_energies.append(np.inf)
+            min_geometry = []
+            symbols = []
             # Collect data from the output
             with open(f'output/surface_{surf.surf_id}.dat', 'r') as f:
                 recording = False
                 for line in f.readlines():
                     if line.startswith('Face'):
                         face = int(line.split()[1])
+                        continue
+                    elif line.startswith('Minimum energy:'):
+                        if float(line.split()[-1]) < min_energies[-1]:
+                            min_energies[-1] = float(line.split()[-1])
+                            recording = True
+                        continue
+                    elif line.startswith('Minimum energy geometry:'):
+                        ftype = 'geometry'
                         continue
                     elif line.startswith('Canonical:'):
                         ftype = 'Canonical'
@@ -291,10 +314,18 @@ class Multi(object):
                         recording = True
                         ftype = 'Microcanonical'
                         continue
+                    elif ftype == 'geometry':
+                        if recording:
+                            symbols.append(line.split()[0])
+                            min_geometry.append([float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
+                        continue
                     elif line.startswith('E-J resolved:'):
                         ftype = None
                         recording = False
                         break
+                    if surf.surf_id in ignore_surf_id:
+                        recording = False
+
                     if not recording:
                         continue
                     if face == 0:
@@ -304,6 +335,9 @@ class Multi(object):
 
                     #Sum-up the flux of all faces
                     multi_flux[ftype][surf.surf_id][-1] += float(line.split()[1])*factor
+
+            atoms_min = ase.Atoms(symbols, positions=min_geometry)
+            min_energies_dist.append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
             #Save surface flux if minimum for a given temperature
             for temp_index in range(len(self.fluxbase.temp_grid)):
                 #Initialize flux_origin, which saves from which surface the flux is coming from
@@ -322,8 +356,10 @@ class Multi(object):
                     flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
         mc_rate0 = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
-        for mr in range(len(mc_rate0)):
-            print(f"{self.fluxbase.temp_grid[mr]:.2}\t{mc_rate0[mr]:.2e}\t{flux_origin['Microcanonical'][mr]}")
+        # for mr in range(len(mc_rate0)):
+        #     print(f"{self.fluxbase.temp_grid[:len(mc_rate0)]:.2}\t{mc_rate0[mr]:.2e}\t{flux_origin['Microcanonical'][mr]}")
+        
+        create_matplotlib_graph(x = self.fluxbase.temp_grid.tolist(), data = [mc_rate0], name=f"{self.sample.name}_micro_rate", x_label="Temperature (K)", y_label="Rate constant (s$^{-1}$)", data_legends=[f"{self.sample.name}"])#, comments=comments)
         # efl0 = zip(egrid, minflux)
         # with open('minflux', 'w') as f:
         #     for e, fl in efl0:  # convert energy to cm-1
@@ -448,7 +484,7 @@ class Multi(object):
                 break
             except EOFError:
                 self.logger.debug(f'EOFError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
-            except UnpicklingError:
+            except:
                 time.sleep(0.1)
                 for i in range(3):
                     self.logger.debug(f'UnpicklingError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
@@ -460,7 +496,6 @@ class Multi(object):
                         time.sleep(0.1)
                         if i == 2:
                             self.del_db_job(job)
-                            return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
                 break
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
@@ -511,12 +546,27 @@ class Multi(object):
     def del_db_job(self, job):
         _0, _1, surf_id, face_id, _4, samp_id, _6 = job
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl'):
-            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
-            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.xml')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
-            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.inp')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh'):
-            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.sh')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
-            os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.py')

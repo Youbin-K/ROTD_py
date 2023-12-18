@@ -35,18 +35,22 @@ class Sample(object):
     dof_num : degree of freedom of the reaction system.
     weight : the geometry weight for the generated configuration.
     inf_energy: the energy of the configuration at infinite separation in Hartree
-    scan_sample: 1D energies (kcal) along the dissociation computed at the sampling level
-    scan_trust: 1D energies (kcal) along the dissociation computed at the highest affordable level
+    corrections: Dictionary of the different corrections to be included.
+        Corrections currently implemented:
+            1d - Dictionary that must contain:
+                    scan_ref: indexes in the fragments of the atoms between which scan was computed.
+                    e_sample: 1D energies (kcal) along the dissociation computed at the sampling level.
+                    e_trust: 1D energies (kcal) along the dissociation computed at the highest affordable level.
+                    r_sample: sample level scan distances (Angstrom). Same length as e_sample.
+                    r_trust: trust level scan distances (Angstrom). Same length as e_trust.
     """
 
     def __init__(self, name=None, fragments=None, dividing_surface=None,
                  min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
-                 r_sample=None, e_sample=None, r_trust=None, e_trust=None,
-                 scan_ref=None):
+                 corrections=None):
         __metaclass__ = ABCMeta
         self.name=name
         # list of fragments
-
         self.fragments = fragments
         if fragments is None or len(fragments) < 2:
             raise ValueError("For sample class, \
@@ -55,15 +59,35 @@ class Sample(object):
         self.close_dist = min_fragments_distance
         self.weight = 0.0
         self.inf_energy = inf_energy*rotd_math.Hartree #Convert energy from Hartree to eV
-        # correction potential parameters
-        self.set_scan_ref(scan_ref)  # atom number of pivots, list of lists
-        self._1d_correction = self.get_1d_correction(r_sample, e_sample, r_trust, e_trust)
+        #Initialise corrections disctionary
+        if corrections == None or not isinstance(corrections, dict):
+            self.corrections = {}
+        else:
+            self.corrections = {}
+            self.initialise_corrections(corrections)
         self.energy_size = energy_size
-        self.energies = np.array([0.] * self.energy_size)
+        self.energies = np.array([0.] * (self.energy_size+len(self.corrections.keys())))
         self.ini_configuration()
         self.set_dof()
 
-    def get_1d_correction(self, r_sample, e_sample, r_trust, e_trust):
+    def initialise_corrections(self, corrections):
+        """Check the user provided corrections dictionnary to setup different corrections scheme"""
+        if "1d" in corrections and isinstance(corrections["1d"], dict):
+            do_1d = True
+            necessary_data = ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
+            for key in necessary_data:
+                if key not in corrections["1d"]:
+                    self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
+                    do_1d = False
+            if do_1d:
+                self.corrections["1d"] = corrections["1d"]
+                self.set_scan_ref(self.corrections["1d"]["scan_ref"])  # atom number of pivots, list of lists
+                self.set_1d_correction(self.corrections["1d"]["r_sample"],
+                                       self.corrections["1d"]["e_sample"],
+                                       self.corrections["1d"]["r_trust"],
+                                       self.corrections["1d"]["e_trust"])
+
+    def set_1d_correction(self, r_sample, e_sample, r_trust, e_trust):
         """Function that takes scan relative energies in Kcal
         and returns a spline corresponding to the 1d correction in eV."""
         if r_sample == None or not isinstance(r_sample, list):
@@ -85,11 +109,14 @@ class Sample(object):
 
         y_1d_correction = np.subtract(np.asarray(y_spln_sample), np.asarray(y_spln_trust))
 
-        _1d_correction = make_interp_spline(x_spln_1d_correction, y_1d_correction)
-
-        return _1d_correction
+        self._1d_correction = make_interp_spline(x_spln_1d_correction, y_1d_correction)
     
-    def energy_correction(self):
+    def energy_correction(self, key):
+        match key:
+            case "1d":
+                return self._1d_correction_energy()
+
+    def _1d_correction_energy(self):
         distance = np.inf
         for scr in self.scan_ref:
             distance = min(distance, np.absolute(np.linalg.norm(self.configuration.positions[scr[0]] -\
@@ -207,7 +234,7 @@ class Sample(object):
         # This is a temporary fix specific for using Amp calculator as we are not able to
         # either 1) deepcopy the Amp calculator object or 2) using MPI send/receive Amp calculator object
         # Note: this may cause some performance issue as we need to load Amp calculator for each calculation.
-        if calculator['code'] == 'amp.amp':
+        if calculator['code'][-3:] == 'amp':
             amp_calc = Amp.load(f'{rotd_py.__path__[0]}/amp.amp')
             self.configuration.set_calculator(amp_calc)
             energy = self.configuration.get_potential_energy()
@@ -221,7 +248,11 @@ class Sample(object):
             energy = mp.read_energy()
 
         #Energies must be in eV
-        self.energies[0] = (energy + self.energy_correction() - self.inf_energy)/rotd_math.Hartree
+        energy_index = 0
+        self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree
+        for key in self.corrections:
+            energy_index += 1
+            self.energies[energy_index] = (energy + self.energy_correction(key) - self.inf_energy)/rotd_math.Hartree
 
         return self.energies
 

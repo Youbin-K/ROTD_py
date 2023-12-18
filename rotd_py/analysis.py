@@ -89,11 +89,11 @@ def create_matplotlib_graph(x=[0., 1.], data=[[1., 1.]], name="mtpltlb", x_label
                             data_legends=["y0"], comments=[""], exponential=False):
     """Function that create the input for a 2D matplotlib plot.
     x: List of floats.
-    y: List of lists of floats.
+    data: List of lists of floats.
     name: String.
     x_label: String.
     y_label: String.
-    data_legends: List of strings, same length as y.
+    data_legends: List of strings, same length as data.
     comments: List of strings.
     exponential: Boolean. Change the y-axis to exponential scale.
     """

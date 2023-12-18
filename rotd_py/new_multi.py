@@ -359,7 +359,9 @@ class Multi(object):
         # for mr in range(len(mc_rate0)):
         #     print(f"{self.fluxbase.temp_grid[:len(mc_rate0)]:.2}\t{mc_rate0[mr]:.2e}\t{flux_origin['Microcanonical'][mr]}")
         
-        create_matplotlib_graph(x = self.fluxbase.temp_grid.tolist(), data = [mc_rate0], name=f"{self.sample.name}_micro_rate", x_label="Temperature (K)", y_label="Rate constant (s$^{-1}$)", data_legends=[f"{self.sample.name}"])#, comments=comments)
+        create_matplotlib_graph(x = self.fluxbase.temp_grid.tolist(), data = [mc_rate0], name=f"{self.sample.name}_micro_rate",\
+                                x_label="Temperature (K)", y_label="Rate constant (s$^{-1}$)", data_legends=[f"{self.sample.name}"],\
+                                exponential=True)#, comments=comments)
         # efl0 = zip(egrid, minflux)
         # with open('minflux', 'w') as f:
         #     for e, fl in efl0:  # convert energy to cm-1

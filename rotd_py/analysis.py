@@ -85,9 +85,24 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
 
     return mc_rate
 
-def create_matplotlib_graph(x=[0., 1.], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y", data_legends=["y0"], comments=[""]):
-    """Function that create the input for a 2D matplotlib plot."""
+def create_matplotlib_graph(x=[0., 1.], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
+                            data_legends=["y0"], comments=[""], exponential=False):
+    """Function that create the input for a 2D matplotlib plot.
+    x: List of floats.
+    y: List of lists of floats.
+    name: String.
+    x_label: String.
+    y_label: String.
+    data_legends: List of strings, same length as y.
+    comments: List of strings.
+    exponential: Boolean. Change the y-axis to exponential scale.
+    """
 
+
+
+    if x == None or not isinstance(x, list):
+        print("No x data found")
+        return
     if not isinstance(x, list) and not isinstance(data, list):
         return 
     
@@ -111,6 +126,9 @@ from scipy.interpolate import make_interp_spline\n\n"""
     for index, legend in enumerate(data_legends):
         content += f"ax.scatter(x, y{index}, label='{legend}', marker='x')\n"
         content += f"ax.plot(x_spln, y_spln{index}, label='spln_{legend}')\n"
+
+    if exponential:
+        content += "ax.set_yscale('log')\n"
 
     content += f"""
 ax.legend(loc='lower right')

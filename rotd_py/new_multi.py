@@ -308,11 +308,14 @@ class Multi(object):
                         continue
                     elif line.startswith('Canonical:'):
                         ftype = 'Canonical'
-                        recording = True
+                        #recording = True
                         continue
                     elif line.startswith('Microcanonical:'):
-                        recording = True
+                        #recording = True
                         ftype = 'Microcanonical'
+                        continue
+                    elif "Uncorrected" in line:
+                        recording = True
                         continue
                     elif ftype == 'geometry':
                         if recording:

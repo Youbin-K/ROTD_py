@@ -65,8 +65,8 @@ class Sample(object):
         else:
             self.corrections = {}
             self.initialise_corrections(corrections)
-        self.energy_size = energy_size
-        self.energies = np.array([0.] * (self.energy_size+len(self.corrections.keys())))
+        self.energy_size = energy_size+len(self.corrections.keys())
+        self.energies = np.array([0.] * (self.energy_size))
         self.ini_configuration()
         self.set_dof()
 

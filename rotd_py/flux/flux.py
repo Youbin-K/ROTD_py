@@ -180,25 +180,41 @@ class MultiFlux:
             f.write("Out of face sampling: %d \n" % (curr_flux.face_smp()))
             f.write("Dummy sampling: %d \n" % (curr_flux.fake_smp()))
             # here out put unit with kcal/mol
-            f.write("Minimum energy: %.5f\n" % (curr_flux.min_energy[0]/rotd_math.Kcal))
+            f.write("Minimum energy: %.5f" % (curr_flux.min_energy[0]/rotd_math.Kcal))
+            for corrected_e in range(1, len(curr_flux.min_energy)):
+                f.write("   %.5f" % (curr_flux.min_energy[corrected_e]/rotd_math.Kcal))
+            f.write("\n")
             f.write("Minimum energy geometry:\n")
-            for i in range(0, len(curr_flux.min_geometry[0])):
-                item = curr_flux.min_geometry[0][i]
-                f.write("%5s %16.8f %16.8f %16.8f\n" % (symbols[i], item[0], item[1], item[2]))
+            for line in range(0, len(curr_flux.min_geometry[0])):
+                f.write("%5s" % (symbols[line]))
+                for correction_index in range(len(curr_flux.min_geometry)):
+                    item = curr_flux.min_geometry[correction_index][line]
+                    f.write(" %16.8f %16.8f %16.8f |" % (item[0], item[1], item[2]))
+                f.write("\n")
 
             # now normalize the calculated results
             curr_flux.normalize()
             # the Canonical:
             f.write("Canonical: \n")
-            for i in range(0, len(curr_flux.temp_grid)):
-                line = "%-16.3f  " % (curr_flux.temp_grid[i]/rotd_math.Kelv)
-                line += " ".join(format(x, ".3e") for x in curr_flux.temp_sum[i, :])
+            f.write("%-16s %15s" % ("Temperature (K)", "Uncorrected"))
+            for correction_name in curr_flux.sample.corrections.keys():
+                f.write(" %15s" % (correction_name))
+            f.write("\n")
+            for this_temp in range(0, len(curr_flux.temp_grid)):
+                line = "%-16.3f  " % (curr_flux.temp_grid[this_temp]/rotd_math.Kelv)
+                for x in curr_flux.temp_sum[this_temp]:
+                    line += " %14.3e" % (x)
                 f.write(line + '\n')
             # the Micro-canonical:
             f.write("Microcanonical: \n")
-            for i in range(0, len(curr_flux.energy_grid)):
-                line = "%-16.3f" % (curr_flux.energy_grid[i]/rotd_math.Kelv)
-                line += " ".join(format(x, ".3e") for x in curr_flux.e_sum[i, :])
+            f.write("%-16s %15s" % ("Energy (cm-1)", "Uncorrected"))
+            for correction_name in curr_flux.sample.corrections.keys():
+                f.write(" %15s" % (correction_name))
+            f.write("\n")
+            for this_energy in range(0, len(curr_flux.energy_grid)):
+                line = "%-16.3f" % (curr_flux.energy_grid[this_energy]/rotd_math.Kelv)
+                for x in curr_flux.e_sum[this_energy]:
+                    line += " %14.3e" % (x)
                 f.write(line + '\n')
 
             f.write("E-J resolved: \n")

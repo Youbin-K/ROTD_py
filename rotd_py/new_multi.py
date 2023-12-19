@@ -356,12 +356,23 @@ class Multi(object):
                     flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
         mc_rate0 = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
-        # for mr in range(len(mc_rate0)):
-        #     print(f"{self.fluxbase.temp_grid[:len(mc_rate0)]:.2}\t{mc_rate0[mr]:.2e}\t{flux_origin['Microcanonical'][mr]}")
+        comments = []
+        comments.append(f"Sources: {flux_origin['Microcanonical']}")
         
         create_matplotlib_graph(x = self.fluxbase.temp_grid.tolist(), data = [mc_rate0], name=f"{self.sample.name}_micro_rate",\
-                                x_label="Temperature (K)", y_label="Rate constant (s$^{-1}$)", data_legends=[f"{self.sample.name}"],\
-                                exponential=True)#, comments=comments)
+                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=[f"rate_{self.sample.name}"],\
+                                exponential=True, comments=comments)
+        
+        sorted_r = []
+        sorted_e = []
+        for r, e in sorted(zip(min_energies_dist ,min_energies)):
+            sorted_r.append(r)
+            sorted_e.append(e)
+
+        create_matplotlib_graph(x = sorted_r, data = [sorted_e], name=f"{self.sample.name}_min_energy",\
+                                x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
+                                y_label="Minimum energy (kcal/mol)", data_legends=[f"energy_{self.sample.name}"],\
+                                exponential=False)#, comments=comments)
         # efl0 = zip(egrid, minflux)
         # with open('minflux', 'w') as f:
         #     for e, fl in efl0:  # convert energy to cm-1

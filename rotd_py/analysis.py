@@ -128,7 +128,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
         content += f"ax.plot(x_spln, y_spln{index}, label='spln_{legend}')\n"
 
     if exponential:
-        content += "ax.set_yscale('log')\n"
+        content += "ax.set_yscale('symlog')\n"
 
     content += f"""
 ax.legend(loc='lower right')

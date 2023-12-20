@@ -251,6 +251,7 @@ class Multi(object):
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
                     self.total_flux[surf_id].save_file(surf_id)
                     self.converged[int(surf_id)] = True #TODO: add full converged check
+                    self.save_run_in_db()
                     self.logger.info(f'Calculations are done for surface {surf_id}')
                 else:
                     self.logger.warning('The flux tag is INVALID')
@@ -283,6 +284,8 @@ class Multi(object):
         min_energies_dist = []
 
         for surf in self.dividing_surfaces:
+            if not self.converged[int(surf.surf_id)]:
+                continue
             
 
             if surf.surf_id not in ignore_surf_id:

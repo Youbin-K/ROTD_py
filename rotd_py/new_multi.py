@@ -10,6 +10,7 @@ import re
 from itertools import compress
 import numpy as np
 import ase
+import sys
 
 from rotd_py.flux.flux import MultiFlux
 from rotd_py.system import FluxTag
@@ -53,7 +54,7 @@ class Multi(object):
         self.workdir = os.getcwd()
         if not os.path.isdir(self.sample.name):
             os.mkdir(self.sample.name)
-        shutil.copy(__file__, self.sample.name)
+        shutil.copy(sys.argv[0], self.sample.name)
         os.chdir(self.sample.name)
         self.logger = config_log('rotdpy')
         os.chdir(self.workdir)

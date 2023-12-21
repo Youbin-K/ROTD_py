@@ -260,9 +260,9 @@ class Multi(object):
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
         self.save_run_in_db()
-        self.print_rate_constant(dynamical_correction=0.9)
+        self.print_results(dynamical_correction=0.9)
 
-    def print_rate_constant(self, ignore_surf_id=None, scan_ref=None, dynamical_correction=1):
+    def print_results(self, ignore_surf_id=None, scan_ref=None, dynamical_correction=1):
         os.chdir(f"{self.workdir}/{self.sample.name}")
                 
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):

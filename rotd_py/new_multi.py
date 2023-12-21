@@ -277,6 +277,9 @@ class Multi(object):
         sorted_r = []
         sorted_e = []
         temp_list = []
+        data_legends_e = []
+        data_legends_r = []
+
         for output_energy_index in range(self.sample.energy_size):
             ftype = None
 
@@ -383,16 +386,18 @@ class Multi(object):
 
             
             comments.append(f"Sources: {flux_origin['Microcanonical']}")
+            data_legends_e.append(f"e{output_energy_index}_{self.sample.name}")
+            data_legends_r.append(f"rate_{self.sample.name}")
 
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
-                                y_label="Minimum energy (kcal/mol)", data_legends=[f"energy_{self.sample.name}"],\
+                                y_label="Minimum energy (Kcal/mol)", data_legends=data_legends_e,\
                                 exponential=False)#, comments=comments)
             
         comments = []
         
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
-                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=[f"rate_{self.sample.name}"],\
+                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 exponential=True, comments=comments)
         
             

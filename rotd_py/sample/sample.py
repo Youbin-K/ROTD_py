@@ -194,7 +194,7 @@ class Sample(object):
         #Energies must be in eV
         energy_index = 0
         self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree
-        for correction in self.corrections:
+        for correction in self.corrections.values():
             energy_index += 1
             self.energies[energy_index] = (energy + correction.energy(self.configuration) - self.inf_energy)/rotd_math.Hartree
 

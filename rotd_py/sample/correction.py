@@ -76,7 +76,7 @@ class Correction():
                                                         configuration.positions[scr[1]])))
                     if distance > min(max(self.r_trust), max(self.r_sample)):
                         return 0.
-                    elif distance > max(min(self.r_trust), min(self.r_sample)):
+                    elif distance < max(min(self.r_trust), min(self.r_sample)):
                         return 0.
                     else:
                         return self._1d_correction(distance)

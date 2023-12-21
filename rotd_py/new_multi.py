@@ -261,25 +261,32 @@ class Multi(object):
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
         self.save_run_in_db()
-        self.print_results(dynamical_correction=0.9)
 
-    def print_results(self, ignore_surf_id=None, scan_ref=None, dynamical_correction=1):
+    def print_results(self, ignore_surf_id=None, dynamical_correction=1):
         os.chdir(f"{self.workdir}/{self.sample.name}")
                 
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
-
-        if scan_ref == None:
-            scan_ref = self.sample.scan_ref
 
         mc_rate = []
         min_energies = []
         min_energies_dist = []
         sorted_r = []
         sorted_e = []
+        splines = []
         temp_list = []
         data_legends_e = []
         data_legends_r = []
+        comments = []
+        save_min_energy_dist = False
+
+        corrections = []
+        for correction in self.sample.corrections.values():
+            corrections.append(correction)
+            if correction.type == "1d":
+                save_min_energy_dist = True
+                scan_ref = correction.scan_ref
+                correction.plot()
 
         for output_energy_index in range(self.sample.energy_size):
             ftype = None
@@ -357,8 +364,9 @@ class Multi(object):
                         #Sum-up the flux of all faces
                         multi_flux[ftype][surf.surf_id][-1] += float(line.split()[output_energy_index+1])*dynamical_correction
 
-                atoms_min = ase.Atoms(symbols, positions=min_geometry)
-                min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
+                if save_min_energy_dist:
+                    atoms_min = ase.Atoms(symbols, positions=min_geometry)
+                    min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
                 #Save surface flux if minimum for a given temperature
                 for temp_index in range(len(self.fluxbase.temp_grid)):
                     #Initialize flux_origin, which saves from which surface the flux is coming from
@@ -376,26 +384,38 @@ class Multi(object):
                         min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
                         flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
+            #Prepare micro-canonical plot
             mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
+            temp_list.append(self.fluxbase.temp_grid.tolist())
+            comments.append(f"Sources: {flux_origin['Microcanonical']}")
+            data_legends_r.append(f"rate_{self.sample.name}")
+
+
+            #Prepare min energy plot
             sorted_r.append([])
             sorted_e.append([])
-            for r, e in sorted(zip(min_energies_dist[output_energy_index] ,min_energies[output_energy_index])):
+            for r, e in sorted(zip(min_energies_dist[output_energy_index], min_energies[output_energy_index])):
                 sorted_r[output_energy_index].append(r)
                 sorted_e[output_energy_index].append(e)
-
-            temp_list.append(self.fluxbase.temp_grid.tolist())
-
-            
-            comments.append(f"Sources: {flux_origin['Microcanonical']}")
             data_legends_e.append(f"e{output_energy_index}_{self.sample.name}")
-            data_legends_r.append(f"rate_{self.sample.name}")
+            splines.append(False)
+
+            if output_energy_index > 0.:
+                if corrections[output_energy_index-1].type == "1d":
+                    sorted_e.append(corrections[output_energy_index-1].e_trust)
+                    sorted_r.append(corrections[output_energy_index-1].r_trust)
+                    splines.append(True)
+                    data_legends_e.append(f"trust_{self.sample.name}")
+                    sorted_e.append(corrections[output_energy_index-1].e_sample)
+                    sorted_r.append(corrections[output_energy_index-1].r_sample)
+                    splines.append(True)
+                    data_legends_e.append(f"sample_{self.sample.name}")
+
 
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Minimum energy (Kcal/mol)", data_legends=data_legends_e,\
-                                exponential=False)#, comments=comments)
-            
-        comments = []
+                                exponential=False, splines=splines)#, comments=comments)
         
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\

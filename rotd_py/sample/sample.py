@@ -59,12 +59,12 @@ class Sample(object):
         self.close_dist = min_fragments_distance
         self.weight = 0.0
         self.inf_energy = inf_energy*rotd_math.Hartree #Convert energy from Hartree to eV
+        self.ini_configuration()
+        self.set_dof()
         #Initialise corrections disctionary 
         self.initialise_corrections(corrections)
         self.energy_size = energy_size+len(self.corrections.keys())
         self.energies = np.array([0.] * (self.energy_size))
-        self.ini_configuration()
-        self.set_dof()
 
     def initialise_corrections(self, corrections):
         "Function that creates correction objects for each correction"
@@ -196,7 +196,7 @@ class Sample(object):
         self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree
         for correction in self.corrections.values():
             energy_index += 1
-            self.energies[energy_index] = (energy + correction.energy(self.configuration) - self.inf_energy)/rotd_math.Hartree
+            self.energies[energy_index] = (energy + correction.energy(configuration=self.configuration) - self.inf_energy)/rotd_math.Hartree
 
         return self.energies
 

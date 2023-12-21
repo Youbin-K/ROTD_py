@@ -86,7 +86,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
     return mc_rate
 
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
-                            data_legends=["y0"], comments=[""], exponential=False, splines=[False]):
+                            data_legends=["y0"], comments=[""], exponential=False, splines=None):
     """Function that create the input for a 2D matplotlib plot.
     x_lists: List of lists of floats.
     data: List of lists of floats.
@@ -98,7 +98,8 @@ def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb",
     exponential: Boolean. Change the y-axis to exponential scale.
     """
 
-
+    if splines == None:
+        splines = [False for i in range(len(data))]
 
     if x_lists == None or not isinstance(x_lists, list):
         print("No x data found")
@@ -114,22 +115,22 @@ from scipy.interpolate import make_interp_spline\n\n"""
         content += f"# {comment}\n"
     
     for index, x in enumerate(x_lists):
-        content += f"x{[index]} = {x}\n"
-        content += f"x{[index]}_spln = np.arange(min(x), max(x), 0.01)\n\n"
+        content += f"x{index} = {x}\n"
+        content += f"x{index}_spln = np.arange(min(x{index}), max(x{index}), 0.01)\n\n"
 
     for index, y in enumerate(data):
         content += f"y{index} = {list(y)}\n"
-        content += f"spln{index} = make_interp_spline(x, y{index})\n"
-        content += f"y_spln{index} = spln{index}(x{[index]}_spln)\n"
+        content += f"spln{index} = make_interp_spline(x{index}, y{index})\n"
+        content += f"y_spln{index} = spln{index}(x{index}_spln)\n"
 
     content += "\nfig, ax = plt.subplots()\n"
 
     for index, legend in enumerate(data_legends):
         if splines[index]:
-            content += f"ax.scatter(x{[index]}, y{index}, marker='x')\n"
-            content += f"ax.plot(x{[index]}_spln, y_spln{index}, label='spln_{legend}')\n"
+            content += f"ax.scatter(x{index}, y{index}, marker='x')\n"
+            content += f"ax.plot(x{index}_spln, y_spln{index}, label='spln_{legend}')\n"
         else:
-            content += f"ax.plot(x, y{index}, label='{legend}', marker='x')\n"
+            content += f"ax.plot(x{index}, y{index}, label='{legend}', marker='x')\n"
 
     if exponential:
         content += "ax.set_yscale('symlog')\n"

@@ -3,6 +3,7 @@ import numpy as np
 import rotd_py
 import rotd_py.rotd_math as rotd_math
 from scipy.interpolate import make_interp_spline
+from rotd_py.analysis import create_matplotlib_graph
 
 class Correction():
     """Class that creates correction objects, which provide a correction potential for each sample"""
@@ -65,11 +66,18 @@ class Correction():
         for scr in scan_ref:
             self.scan_ref.append([scr[0], scr[1]+len(self.sample.fragments[0].positions)])
 
-    def energy(self, configuration):
+    def energy(self, configuration=None, distance=None):
         if self.default_energy != None:
             return self.default_energy
         match self.type:
             case "1d":
+                if distance != None:
+                    if distance > min(max(self.r_trust), max(self.r_sample)):
+                        return 0.
+                    elif distance < max(min(self.r_trust), min(self.r_sample)):
+                        return 0.
+                    else:
+                        return self._1d_correction(distance)
                 distance = np.inf
                 for scr in self.scan_ref:
                     distance = min(distance, np.absolute(np.linalg.norm(configuration.positions[scr[0]] -\
@@ -80,5 +88,15 @@ class Correction():
                         return 0.
                     else:
                         return self._1d_correction(distance)
+                    
+    def plot(self, xmin=0., xmax=20.):
+        """Function that create a matplotlib plot of the correction"""
+        x = np.arange(xmin, xmax, 0.01)
+        y = [self.energy(distance=distance)*rotd_math.Hartree/rotd_math.Kcal for distance in x]
+
+        create_matplotlib_graph(x_lists=[x.tolist()], data=[y], name=f"{self.sample.name}_1d_{self.name}",\
+                        x_label=f"{self.sample.configuration.symbols[self.scan_ref[0][0]]}{self.scan_ref[0][0]} to {self.sample.configuration.symbols[self.scan_ref[0][1]]}{self.scan_ref[0][1]} distance ($\AA$)",
+                        y_label="Energy (Kcal/mol)", data_legends=[f"Correction {self.name}"],\
+                        exponential=False)
 
         

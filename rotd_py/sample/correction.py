@@ -65,15 +65,20 @@ class Correction():
         for scr in scan_ref:
             self.scan_ref.append([scr[0], scr[1]+len(self.sample.fragments[0].positions)])
 
-        def energy(self, configuration):
-            if self.default_energy != None:
-                return self.default_energy
-            match self.type:
-                case "1d":
-                    distance = np.inf
-                    for scr in self.scan_ref:
-                        distance = min(distance, np.absolute(np.linalg.norm(configuration.positions[scr[0]] -\
-                                                            configuration.positions[scr[1]])))
-                    return self._1d_correction(distance)
+    def energy(self, configuration):
+        if self.default_energy != None:
+            return self.default_energy
+        match self.type:
+            case "1d":
+                distance = np.inf
+                for scr in self.scan_ref:
+                    distance = min(distance, np.absolute(np.linalg.norm(configuration.positions[scr[0]] -\
+                                                        configuration.positions[scr[1]])))
+                    if distance > min(max(self.r_trust), max(self.r_sample)):
+                        return 0.
+                    elif distance > max(min(self.r_trust), min(self.r_sample)):
+                        return 0.
+                    else:
+                        return self._1d_correction(distance)
 
         

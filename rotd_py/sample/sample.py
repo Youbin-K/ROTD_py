@@ -9,7 +9,7 @@ import rotd_py
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.molpro.molpro import Molpro
-from scipy.interpolate import make_interp_spline
+from rotd_py.sample.correction import Correction
 
 
 class Sample(object):
@@ -59,75 +59,20 @@ class Sample(object):
         self.close_dist = min_fragments_distance
         self.weight = 0.0
         self.inf_energy = inf_energy*rotd_math.Hartree #Convert energy from Hartree to eV
-        #Initialise corrections disctionary
-        if corrections == None or not isinstance(corrections, dict):
-            self.corrections = {}
-        else:
-            self.corrections = {}
-            self.initialise_corrections(corrections)
+        #Initialise corrections disctionary 
+        self.initialise_corrections(corrections)
         self.energy_size = energy_size+len(self.corrections.keys())
         self.energies = np.array([0.] * (self.energy_size))
         self.ini_configuration()
         self.set_dof()
 
     def initialise_corrections(self, corrections):
-        """Check the user provided corrections dictionnary to setup different corrections scheme"""
-        if "1d" in corrections and isinstance(corrections["1d"], dict):
-            do_1d = True
-            necessary_data = ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
-            for key in necessary_data:
-                if key not in corrections["1d"]:
-                    self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
-                    do_1d = False
-            if do_1d:
-                self.corrections["1d"] = corrections["1d"]
-                self.set_scan_ref(self.corrections["1d"]["scan_ref"])  # atom number of pivots, list of lists
-                self.set_1d_correction(self.corrections["1d"]["r_sample"],
-                                       self.corrections["1d"]["e_sample"],
-                                       self.corrections["1d"]["r_trust"],
-                                       self.corrections["1d"]["e_trust"])
-
-    def set_1d_correction(self, r_sample, e_sample, r_trust, e_trust):
-        """Function that takes scan relative energies in Kcal
-        and returns a spline corresponding to the 1d correction in eV."""
-        if r_sample == None or not isinstance(r_sample, list):
-            r_sample = [0.0,1.,2.,3.,4.]
-        if r_trust == None or not isinstance(r_trust, list):
-            r_trust = [0.0,1.,2.,3.,4.]
-        if e_sample == None or not isinstance(e_sample, list):
-            e_sample = [0., 0., 0., 0., 0.]
-        if e_trust == None or not isinstance(e_trust, list):
-            e_trust = [0., 0., 0., 0., 0.]
-        
-        x_spln_1d_correction = np.arange(min(r_sample + r_trust), max(r_sample + r_trust), 0.01)
-        
-        spln_sample = make_interp_spline(r_sample, np.asarray(e_sample)*rotd_math.Kcal/rotd_math.Hartree)
-        spln_trust = make_interp_spline(r_trust, np.asarray(e_trust)*rotd_math.Kcal/rotd_math.Hartree)
-
-        y_spln_sample = spln_sample(x_spln_1d_correction)
-        y_spln_trust = spln_trust(x_spln_1d_correction)
-
-        y_1d_correction = np.subtract(np.asarray(y_spln_sample), np.asarray(y_spln_trust))
-
-        self._1d_correction = make_interp_spline(x_spln_1d_correction, y_1d_correction)
-    
-    def energy_correction(self, key):
-        match key:
-            case "1d":
-                return self._1d_correction_energy()
-
-    def _1d_correction_energy(self):
-        distance = np.inf
-        for scr in self.scan_ref:
-            distance = min(distance, np.absolute(np.linalg.norm(self.configuration.positions[scr[0]] -\
-                                                  self.configuration.positions[scr[1]])))
-        e = self._1d_correction(distance)
-        return e
-
-    def set_scan_ref(self, scan_ref):
-        self.scan_ref = []
-        for scr in scan_ref:
-            self.scan_ref.append([scr[0], scr[1]+len(self.fragments[0].positions)])
+        "Function that creates correction objects for each correction"
+        self.corrections = {}
+        if corrections == None or not isinstance(corrections, dict):
+            return
+        for correction_name in corrections:
+            self.corrections[correction_name] = Correction(correction_name, corrections[correction_name], self)
 
     def get_dividing_surface(self):
         return self.div_surface
@@ -189,7 +134,6 @@ class Sample(object):
         """Return the inertia moments for the sampled configuration
 
         """
-
         return self.configuration.get_moments_of_inertia() * \
             rotd_math.mp / rotd_math.Bohr**2
 
@@ -250,9 +194,9 @@ class Sample(object):
         #Energies must be in eV
         energy_index = 0
         self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree
-        for key in self.corrections:
+        for correction in self.corrections:
             energy_index += 1
-            self.energies[energy_index] = (energy + self.energy_correction(key) - self.inf_energy)/rotd_math.Hartree
+            self.energies[energy_index] = (energy + correction.energy(self.configuration) - self.inf_energy)/rotd_math.Hartree
 
         return self.energies
 

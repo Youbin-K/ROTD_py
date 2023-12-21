@@ -53,6 +53,7 @@ class Multi(object):
         self.workdir = os.getcwd()
         if not os.path.isdir(self.sample.name):
             os.mkdir(self.sample.name)
+        shutil.copy(__file__, self.sample.name)
         os.chdir(self.sample.name)
         self.logger = config_log('rotdpy')
         os.chdir(self.workdir)
@@ -259,126 +260,142 @@ class Multi(object):
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
         self.save_run_in_db()
-        self.print_rate_constant()
+        self.print_rate_constant(dynamical_correction=0.9)
 
-    def print_rate_constant(self, ignore_surf_id=None, scan_ref=None):
-        factor = .9
-        multi_flux = {'Canonical': {},
-                      'Microcanonical': {}}
-                    #   'E-J resolved': {}}
-        min_flux = {'Canonical': [],
-                    'Microcanonical': []}
-                    #   'E-J resolved': []}
-        ftype = None
-        flux_origin = {'Canonical': [],
-                       'Microcanonical': []}
-                    #   'E-J resolved': []}
-        
+    def print_rate_constant(self, ignore_surf_id=None, scan_ref=None, dynamical_correction=1):
+        os.chdir(f"{self.workdir}/{self.sample.name}")
+                
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
 
         if scan_ref == None:
             scan_ref = self.sample.scan_ref
 
+        mc_rate = []
         min_energies = []
         min_energies_dist = []
-
-        for surf in self.dividing_surfaces:
-            if not self.converged[int(surf.surf_id)]:
-                continue
-            
-
-            if surf.surf_id not in ignore_surf_id:
-                for key in multi_flux :
-                    multi_flux[key][surf.surf_id] = []
-            min_energies.append(np.inf)
-            min_geometry = []
-            symbols = []
-            # Collect data from the output
-            with open(f'output/surface_{surf.surf_id}.dat', 'r') as f:
-                recording = False
-                for line in f.readlines():
-                    if line.startswith('Face'):
-                        face = int(line.split()[1])
-                        continue
-                    elif line.startswith('Minimum energy:'):
-                        if float(line.split()[-1]) < min_energies[-1]:
-                            min_energies[-1] = float(line.split()[-1])
-                            recording = True
-                        continue
-                    elif line.startswith('Minimum energy geometry:'):
-                        ftype = 'geometry'
-                        continue
-                    elif line.startswith('Canonical:'):
-                        ftype = 'Canonical'
-                        #recording = True
-                        continue
-                    elif line.startswith('Microcanonical:'):
-                        #recording = True
-                        ftype = 'Microcanonical'
-                        continue
-                    elif "Uncorrected" in line:
-                        recording = True
-                        continue
-                    elif ftype == 'geometry':
-                        if recording:
-                            symbols.append(line.split()[0])
-                            min_geometry.append([float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
-                        continue
-                    elif line.startswith('E-J resolved:'):
-                        ftype = None
-                        recording = False
-                        break
-                    if surf.surf_id in ignore_surf_id:
-                        recording = False
-
-                    if not recording:
-                        continue
-                    if face == 0:
-                        multi_flux[ftype][surf.surf_id].append(0.)
-                        if surf == self.dividing_surfaces[0]:
-                            min_flux[ftype].append(np.inf)
-
-                    #Sum-up the flux of all faces
-                    multi_flux[ftype][surf.surf_id][-1] += float(line.split()[1])*factor
-
-            atoms_min = ase.Atoms(symbols, positions=min_geometry)
-            min_energies_dist.append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
-            #Save surface flux if minimum for a given temperature
-            for temp_index in range(len(self.fluxbase.temp_grid)):
-                #Initialize flux_origin, which saves from which surface the flux is coming from
-                if len(flux_origin['Canonical']) < len(self.fluxbase.temp_grid):
-                    flux_origin['Canonical'].append(surf.surf_id,)
-                if multi_flux['Canonical'][surf.surf_id][temp_index] < min_flux['Canonical'][temp_index]:
-                    min_flux['Canonical'][temp_index] = multi_flux['Canonical'][surf.surf_id][temp_index]
-                    flux_origin['Canonical'][temp_index] = surf.surf_id
-            #Save surface flux if minimum for a given energy
-            for energy_index in range(len(self.fluxbase.energy_grid)):
-                #Initialize flux_origin, which saves from which surface the flux is coming from
-                if len(flux_origin['Microcanonical']) < len(self.fluxbase.energy_grid):
-                    flux_origin['Microcanonical'].append(surf.surf_id,)
-                if multi_flux['Microcanonical'][surf.surf_id][energy_index] < min_flux['Microcanonical'][energy_index]:
-                    min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
-                    flux_origin['Microcanonical'][energy_index] = surf.surf_id
-
-        mc_rate0 = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
-        comments = []
-        comments.append(f"Sources: {flux_origin['Microcanonical']}")
-        
-        create_matplotlib_graph(x = self.fluxbase.temp_grid.tolist(), data = [mc_rate0], name=f"{self.sample.name}_micro_rate",\
-                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=[f"rate_{self.sample.name}"],\
-                                exponential=True, comments=comments)
-        
         sorted_r = []
         sorted_e = []
-        for r, e in sorted(zip(min_energies_dist ,min_energies)):
-            sorted_r.append(r)
-            sorted_e.append(e)
+        temp_list = []
+        for output_energy_index in range(self.sample.energy_size):
+            ftype = None
 
-        create_matplotlib_graph(x = sorted_r, data = [sorted_e], name=f"{self.sample.name}_min_energy",\
+            mc_rate.append([])
+            min_energies.append([])
+            min_energies_dist.append([])
+            multi_flux = {'Canonical': {},
+                      'Microcanonical': {}}
+                    #   'E-J resolved': {}}
+            min_flux = {'Canonical': [],
+                        'Microcanonical': []}
+                        #   'E-J resolved': []}
+            flux_origin = {'Canonical': [],
+                       'Microcanonical': []}
+                    #   'E-J resolved': []}
+            for surf in self.dividing_surfaces:
+                if not self.converged[int(surf.surf_id)]:
+                    continue
+                
+
+                if surf.surf_id not in ignore_surf_id:
+                    for key in multi_flux :
+                        multi_flux[key][surf.surf_id] = []
+                else:
+                    continue
+                min_energies[output_energy_index].append(np.inf)
+                min_geometry = []
+                symbols = []
+                # Collect data from the output
+                with open(f'output/surface_{surf.surf_id}.dat', 'r') as f:
+                    recording = False
+                    for line in f.readlines():
+                        if line.startswith('Face'):
+                            face = int(line.split()[1])
+                            continue
+                        elif line.startswith('Minimum energy:'):
+                            if float(line.split()[2+output_energy_index]) < min_energies[output_energy_index][-1]:
+                                min_energies[output_energy_index][-1] = float(line.split()[2+output_energy_index])
+                                recording = True
+                            continue
+                        elif line.startswith('Minimum energy geometry:'):
+                            ftype = 'geometry'
+                            continue
+                        elif line.startswith('Canonical:'):
+                            ftype = 'Canonical'
+                            #recording = True
+                            continue
+                        elif line.startswith('Microcanonical:'):
+                            #recording = True
+                            ftype = 'Microcanonical'
+                            continue
+                        elif "Uncorrected" in line:
+                            recording = True
+                            continue
+                        elif ftype == 'geometry':
+                            if recording:
+                                symbols.append(line.split()[0])
+                                min_geometry.append([float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
+                            continue
+                        elif line.startswith('E-J resolved:'):
+                            ftype = None
+                            recording = False
+                            break
+                        if surf.surf_id in ignore_surf_id:
+                            recording = False
+
+                        if not recording:
+                            continue
+                        if face == 0:
+                            multi_flux[ftype][surf.surf_id].append(0.)
+                            if surf == self.dividing_surfaces[0]:
+                                min_flux[ftype].append(np.inf)
+
+                        #Sum-up the flux of all faces
+                        multi_flux[ftype][surf.surf_id][-1] += float(line.split()[output_energy_index+1])*dynamical_correction
+
+                atoms_min = ase.Atoms(symbols, positions=min_geometry)
+                min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
+                #Save surface flux if minimum for a given temperature
+                for temp_index in range(len(self.fluxbase.temp_grid)):
+                    #Initialize flux_origin, which saves from which surface the flux is coming from
+                    if len(flux_origin['Canonical']) < len(self.fluxbase.temp_grid):
+                        flux_origin['Canonical'].append(surf.surf_id,)
+                    if multi_flux['Canonical'][surf.surf_id][temp_index] < min_flux['Canonical'][temp_index]:
+                        min_flux['Canonical'][temp_index] = multi_flux['Canonical'][surf.surf_id][temp_index]
+                        flux_origin['Canonical'][temp_index] = surf.surf_id
+                #Save surface flux if minimum for a given energy
+                for energy_index in range(len(self.fluxbase.energy_grid)):
+                    #Initialize flux_origin, which saves from which surface the flux is coming from
+                    if len(flux_origin['Microcanonical']) < len(self.fluxbase.energy_grid):
+                        flux_origin['Microcanonical'].append(surf.surf_id,)
+                    if multi_flux['Microcanonical'][surf.surf_id][energy_index] < min_flux['Microcanonical'][energy_index]:
+                        min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
+                        flux_origin['Microcanonical'][energy_index] = surf.surf_id
+
+            mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
+            sorted_r.append([])
+            sorted_e.append([])
+            for r, e in sorted(zip(min_energies_dist[output_energy_index] ,min_energies[output_energy_index])):
+                sorted_r[output_energy_index].append(r)
+                sorted_e[output_energy_index].append(e)
+
+            temp_list.append(self.fluxbase.temp_grid.tolist())
+
+            
+            comments.append(f"Sources: {flux_origin['Microcanonical']}")
+
+        create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Minimum energy (kcal/mol)", data_legends=[f"energy_{self.sample.name}"],\
                                 exponential=False)#, comments=comments)
+            
+        comments = []
+        
+        create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
+                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=[f"rate_{self.sample.name}"],\
+                                exponential=True, comments=comments)
+        
+            
         # efl0 = zip(egrid, minflux)
         # with open('minflux', 'w') as f:
         #     for e, fl in efl0:  # convert energy to cm-1

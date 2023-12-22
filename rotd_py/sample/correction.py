@@ -1,6 +1,5 @@
 import numpy as np
 
-import rotd_py
 import rotd_py.rotd_math as rotd_math
 from scipy.interpolate import make_interp_spline
 from rotd_py.analysis import create_matplotlib_graph
@@ -23,6 +22,8 @@ class Correction():
                         parameter_missing = True
                 if not parameter_missing:
                     self.set_1d_correction(parameters)
+            case "custom":
+                pass
 
     def set_1d_correction(self, parameters:dict):
         """Function that takes scan relative energies in Kcal

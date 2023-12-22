@@ -73,7 +73,8 @@ class Molpro:
                     if ('SETTING MYENERGY') in line:
                         return float(line.split()[3])*rotd_math.Hartree
                     elif ('ERROR') in line:
-                        return 1.*rotd_math.Hartree
+                        return None
+                        #return 1.*rotd_math.Hartree
             #time.sleep(0.5)
             
     def run(self):

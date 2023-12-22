@@ -113,7 +113,8 @@ class Multi(object):
         self.py_tpl_str = py_tpl_str
         if self.calculator['queue'].casefold() == 'slurm':
             self.sub_cmd = 'sbatch'
-            self.chk_cmd = 'scontrol show jobid -d {job_id}'  
+            self.chk_cmd = 'scontrol show jobid -d {job_id}'
+            self.cancel_cmd = 'scancel {job_id}'
             try:
                 shutil.copy('qu.tpl', self.sample.name)
             except:
@@ -297,8 +298,8 @@ class Multi(object):
             multi_flux = {'Canonical': {},
                       'Microcanonical': {}}
                     #   'E-J resolved': {}}
-            min_flux = {'Canonical': [],
-                        'Microcanonical': []}
+            min_flux = {'Canonical': [np.inf for i in range(len(self.fluxbase.temp_grid))],
+                        'Microcanonical': [np.inf for i in range(len(self.fluxbase.energy_grid))]}
                         #   'E-J resolved': []}
             flux_origin = {'Canonical': [],
                        'Microcanonical': []}
@@ -307,7 +308,6 @@ class Multi(object):
                 if not self.converged[int(surf.surf_id)]:
                     continue
                 
-
                 if surf.surf_id not in ignore_surf_id:
                     for key in multi_flux :
                         multi_flux[key][surf.surf_id] = []
@@ -351,15 +351,10 @@ class Multi(object):
                             ftype = None
                             recording = False
                             break
-                        if surf.surf_id in ignore_surf_id:
-                            recording = False
-
                         if not recording:
                             continue
                         if face == 0:
                             multi_flux[ftype][surf.surf_id].append(0.)
-                            if surf == self.dividing_surfaces[0]:
-                                min_flux[ftype].append(np.inf)
 
                         #Sum-up the flux of all faces
                         multi_flux[ftype][surf.surf_id][-1] += float(line.split()[output_energy_index+1])*dynamical_correction

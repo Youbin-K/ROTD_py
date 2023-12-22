@@ -51,8 +51,8 @@ class Correction():
         
         x_spln_1d_correction = np.arange(min(self.r_sample + self.r_trust), max(self.r_sample + self.r_trust), 0.01)
         
-        spln_sample = make_interp_spline(self.r_sample, np.asarray(self.e_sample)*rotd_math.Kcal/rotd_math.Hartree)
-        spln_trust = make_interp_spline(self.r_trust, np.asarray(self.e_trust)*rotd_math.Kcal/rotd_math.Hartree)
+        spln_sample = make_interp_spline(self.r_sample, np.asarray(self.e_sample)*rotd_math.Kcal*rotd_math.Hartree)
+        spln_trust = make_interp_spline(self.r_trust, np.asarray(self.e_trust)*rotd_math.Kcal*rotd_math.Hartree)
 
         y_spln_sample = spln_sample(x_spln_1d_correction)
         y_spln_trust = spln_trust(x_spln_1d_correction)

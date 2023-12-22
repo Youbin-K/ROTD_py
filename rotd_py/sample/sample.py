@@ -191,6 +191,10 @@ class Sample(object):
             mp.run()
             energy = mp.read_energy()
 
+        #Counting failed samples
+        if energy is None:
+            return None
+
         #Energies must be in eV
         energy_index = 0
         self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree

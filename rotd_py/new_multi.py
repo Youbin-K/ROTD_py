@@ -174,7 +174,7 @@ class Multi(object):
                 if face_index not in self.selected_faces[int(surf.surf_id)]:  # HACKED !!!
                     self.logger.info(f'Skipping face {face_index}')
                     continue
-                for j in range(flux.pot_min()):
+                for j in range(max(flux.pot_min()-self.flux_indexes[int(surf.surf_id)][face_index], 0)):
                     #self.logger.info(f'Creating job {j} for surface {surf.surf_id} face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
                     self.work_queue.append((FluxTag.FLUX_TAG, flux,
                                             surf.surf_id, face_index, flux.samp_len(), 
@@ -186,9 +186,10 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                if jobs_submitted == 3000:
-                    self.work_queue = self.work_queue[2999:]
+                if jobs_submitted == 10000:
+                    self.work_queue = self.work_queue[9999:]
                     jobs_submitted = 0
+                    self.save_run_in_db()
                 if initial_submission:
                     initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
@@ -539,8 +540,11 @@ class Multi(object):
                 with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
                     pickle_job = pickle.load(pkl_file)
                 break
-            except EOFError:
-                self.logger.debug(f'EOFError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
+            # except EOFError:
+            #     time.sleep(0.1)
+            #     for i in range(3):
+            #         self.logger.debug(f'EOFError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
+            #     break
             except:
                 time.sleep(0.1)
                 for i in range(3):
@@ -553,7 +557,7 @@ class Multi(object):
                         time.sleep(0.1)
                         if i == 2:
                             self.del_db_job(job)
-                break
+                            return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
         db_status = pickle_job[6]
@@ -622,8 +626,8 @@ class Multi(object):
                 os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
             except FileNotFoundError:
                 self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.sh')
-        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
-            try:
-                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
-            except FileNotFoundError:
-                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.py')
+        # if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
+        #     try:
+        #         os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+        #     except FileNotFoundError:
+        #         self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.py')

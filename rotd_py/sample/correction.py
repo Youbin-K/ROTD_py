@@ -93,11 +93,13 @@ class Correction():
     def plot(self, xmin=0., xmax=20.):
         """Function that create a matplotlib plot of the correction"""
         x = np.arange(xmin, xmax, 0.01)
-        y = [self.energy(distance=distance)*rotd_math.Hartree/rotd_math.Kcal for distance in x]
+        y = [self.energy(distance=distance)/rotd_math.Hartree/rotd_math.Kcal for distance in x]
+
+        comments = [f"Default energy: {self.default_energy}"]
 
         create_matplotlib_graph(x_lists=[x.tolist()], data=[y], name=f"{self.sample.name}_1d_{self.name}",\
                         x_label=f"{self.sample.configuration.symbols[self.scan_ref[0][0]]}{self.scan_ref[0][0]} to {self.sample.configuration.symbols[self.scan_ref[0][1]]}{self.scan_ref[0][1]} distance ($\AA$)",
                         y_label="Energy (Kcal/mol)", data_legends=[f"Correction {self.name}"],\
-                        exponential=False)
+                        exponential=False, comments=comments)
 
         

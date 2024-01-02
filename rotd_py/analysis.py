@@ -127,10 +127,10 @@ from scipy.interpolate import make_interp_spline\n\n"""
 
     for index, legend in enumerate(data_legends):
         if splines[index]:
-            content += f"ax.scatter(x{index}, y{index}, marker='x')\n"
+            #content += f"ax.scatter(x{index}, y{index}, marker='x')\n"
             content += f"ax.plot(x{index}_spln, y_spln{index}, label='spln_{legend}')\n"
         else:
-            content += f"ax.plot(x{index}, y{index}, label='{legend}', marker='x')\n"
+            content += f"ax.scatter(x{index}, y{index}, label='{legend}', marker='x')\n"
 
     if exponential:
         content += "ax.set_yscale('symlog')\n"

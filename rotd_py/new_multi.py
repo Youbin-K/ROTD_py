@@ -1,6 +1,7 @@
 import os
 import time
 import copy
+import glob
 from collections import OrderedDict
 from sqlite3 import connect
 import pickle
@@ -12,7 +13,8 @@ import numpy as np
 import ase
 import sys
 
-from rotd_py.flux.flux import MultiFlux
+from rotd_py.flux.flux import MultiFlux, Flux
+import rotd_py.rotd_math as rotd_math
 from rotd_py.system import FluxTag
 from rotd_py.job_tpl import py_tpl_str
 from rotd_py.analysis import integrate_micro
@@ -70,25 +72,49 @@ class Multi(object):
             surf.surf_id = str(index)
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
-            #Restart
+            #Restart db exists
             if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
                 with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
                     sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
                     rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
                 if rows:
+                    self.logger.info(f"RESTART: Entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
                     surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
                     self.flux_indexes.append(pickle.loads(sample_list))
                     self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
                     old_flux_base = pickle.loads(pkl_old_flux_base)
+                    for face_index, face_flux in enumerate(self.total_flux[surf.surf_id].flux_array):
+                        self.flux_indexes[-1][face_index] = face_flux.acct_smp() + 1
                     #Surface is converged if it has an output, and the same or lower convergence threshold
                     if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
                     (old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
                      old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
                      old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min']):
                         self.converged.append(True)
+                        self.logger.info(f"RESTART: Surface {surf.surf_id} successfully converged. No calculations needed.")
                     else:
                         self.converged.append(False)
+                        self.logger.info(f"RESTART: Surface {surf.surf_id} not converged. More calculations needed.")
+                        for fidx, face_num_samples in enumerate(self.flux_indexes[-1]):
+                            #If a face has no sample, reinitialize the surface
+                            if face_num_samples == 1:
+                                self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
+                                self.total_flux[surf.surf_id].flux_array[fidx] = Flux(temp_grid=self.fluxbase.temp_grid * rotd_math.Kelv,
+                                                                                    energy_grid=self.fluxbase.energy_grid * rotd_math.Kelv,
+                                                                                    angular_grid=self.fluxbase.angular_grid,
+                                                                                    flux_type=self.fluxbase.flux_type,
+                                                                                    flux_parameter=self.fluxbase._flux_parameter,
+                                                                                    sample=copy.deepcopy(indivi_sample),
+                                                                                    calculator=self.calculator,
+                                                                                    )
+                                self.total_flux[surf.surf_id].flux_array[fidx].sample.div_surface.set_face(fidx)
+                                self.flux_indexes[int(surf.surf_id)][fidx] = 1
+                                for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
+                                    os.remove(file)
+                        self.logger.info(f"RESTART: Jobs will restart form indexes {self.flux_indexes[-1]}.")
                 else:
+                    self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
+                    self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
                     self.flux_indexes.append([])
                     self.converged.append(False)
                     self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
@@ -99,6 +125,8 @@ class Multi(object):
                     for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
                         self.flux_indexes[int(surf.surf_id)].append(1)
             else:
+                self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
+                self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
                 self.flux_indexes.append([])
                 self.converged.append(False)
                 self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
@@ -174,7 +202,7 @@ class Multi(object):
                 if face_index not in self.selected_faces[int(surf.surf_id)]:  # HACKED !!!
                     self.logger.info(f'Skipping face {face_index}')
                     continue
-                for j in range(max(flux.pot_min()-self.flux_indexes[int(surf.surf_id)][face_index], 0)):
+                for j in range(max(flux.pot_min()-self.flux_indexes[int(surf.surf_id)][face_index]+1, 1)):
                     #self.logger.info(f'Creating job {j} for surface {surf.surf_id} face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
                     self.work_queue.append((FluxTag.FLUX_TAG, flux,
                                             surf.surf_id, face_index, flux.samp_len(), 
@@ -183,6 +211,7 @@ class Multi(object):
                     initial_submission += 1
 
         while not all(self.converged):
+            #Stop submitting when all work_queue has been submitted
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
@@ -190,8 +219,8 @@ class Multi(object):
                     self.work_queue = self.work_queue[9999:]
                     jobs_submitted = 0
                     self.save_run_in_db()
-                if initial_submission:
-                    initial_submission -= 1
+            if initial_submission:
+                initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
                 self.check_running_jobs()
             for job in reversed(self.newly_finished_jobs):
@@ -219,7 +248,7 @@ class Multi(object):
                 curr_flux.ej_sum += job_flux.ej_sum
                 curr_flux.ej_var += job_flux.ej_var
 
-                self.logger.info(f'Successful samplings so far for face {face_index}: {curr_flux._acct_num}') # {job_flux.close_smp()} {job_flux.face_smp()} {job_flux.fail_smp()} \
+                #self.logger.info(f'Successful samplings so far for face {face_index}: {curr_flux._acct_num}') # {job_flux.close_smp()} {job_flux.face_smp()} {job_flux.fail_smp()} \
                             #{job_flux.temp_sum} {job_flux.temp_var} {job_flux.e_sum} {job_flux.e_var}')
 
                 # update the minimum energy and configuration
@@ -233,7 +262,7 @@ class Multi(object):
                 # if continue sample for current flux and for the face index:
                 if flux_tag == FluxTag.FLUX_TAG:
                     face_index = smp_info
-                    self.logger.info(f'Creating job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
+                    #self.logger.info(f'Creating job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
                     flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                     self.work_queue.append((flux_tag, flux, surf_id, face_index, flux.samp_len(), 
                                             self.flux_indexes[int(surf_id)][face_index], 'TO DO'))
@@ -243,13 +272,13 @@ class Multi(object):
                     smp_num = smp_info
                     for face_index in range(0, len(smp_num)):
                         if smp_num[face_index] != 0:
-                            self.logger.info(f'Creating SURFACE job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
+                            #self.logger.info(f'Creating SURFACE job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
                             flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                             self.work_queue.append((flux_tag, flux, surf_id, face_index,
                                                     smp_num[face_index], self.flux_indexes[int(surf_id)][face_index], 'TO DO'))
                             self.flux_indexes[int(surf_id)][face_index] += 1
 
-                            self.logger.info(f'{FluxTag.SURF_TAG} flux_idx {self.flux_indexes[int(surf_id)][face_index]} face {face_index} smp_num {smp_num} surface {surf_id}')
+                            #self.logger.info(f'{FluxTag.SURF_TAG} flux_idx {self.flux_indexes[int(surf_id)][face_index]} face {face_index} smp_num {smp_num} surface {surf_id}')
 
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
@@ -386,7 +415,6 @@ class Multi(object):
             comments.append(f"Sources: {flux_origin['Microcanonical']}")
             data_legends_r.append(f"rate_{self.sample.name}")
 
-
             #Prepare min energy plot
             sorted_r.append([])
             sorted_e.append([])
@@ -398,14 +426,14 @@ class Multi(object):
 
             if output_energy_index > 0.:
                 if corrections[output_energy_index-1].type == "1d":
-                    sorted_e.append(corrections[output_energy_index-1].e_trust)
-                    sorted_r.append(corrections[output_energy_index-1].r_trust)
-                    splines.append(True)
-                    data_legends_e.append(f"trust_{self.sample.name}")
                     sorted_e.append(corrections[output_energy_index-1].e_sample)
                     sorted_r.append(corrections[output_energy_index-1].r_sample)
                     splines.append(True)
                     data_legends_e.append(f"sample_{self.sample.name}")
+                    sorted_e.append(corrections[output_energy_index-1].e_trust)
+                    sorted_r.append(corrections[output_energy_index-1].r_trust)
+                    splines.append(True)
+                    data_legends_e.append(f"trust_{self.sample.name}")
 
 
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
@@ -416,13 +444,6 @@ class Multi(object):
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 exponential=True, comments=comments)
-        
-            
-        # efl0 = zip(egrid, minflux)
-        # with open('minflux', 'w') as f:
-        #     for e, fl in efl0:  # convert energy to cm-1
-        #         print(f'{(e*0.6950302506112777):.4e} {(fl*612.6e11):.4e}')
-        #         f.write(f'{(e*0.6950302506112777):.2e} {(fl*612.6e11):.2e}\n')
 
     def save_run_in_db(self):
         if not os.path.isfile(f'rotdPy_restart.db'):
@@ -467,15 +488,18 @@ class Multi(object):
         if not self.converged[int(surf_id)]:
             if status == 'NEWLY FINISHED' and job not in self.newly_finished_jobs:
                 self.newly_finished_jobs.append(job)
+                # self.del_db_job(job)
                 return
             elif status == 'RUNNING':
                 self.running_jobs.append(job)
                 return
-            elif status == 'FAILED':
-                self.del_db_job(job)
+            # elif status == 'FAILED':
+            #     self.del_db_job(job)
             while len(self.running_jobs) >= self.calculator['max_jobs']:
                 time.sleep(1)
                 self.check_running_jobs()
+
+            #Jobs with status FAILED or TO DO will come here
 
             # Serialize the job to be picked-up by the sample
             with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
@@ -526,10 +550,13 @@ class Multi(object):
             if status == 'RUNNING':
                 continue
             elif status == 'FAILED':
+                #Delete files when job is finished
                 self.del_db_job(job)
                 self.work_queue.append(updated_job)
                 self.running_jobs.remove(job)
             elif status == 'NEWLY FINISHED' and updated_job not in self.newly_finished_jobs:
+                #Delete files when job is finished
+                self.del_db_job(job)
                 self.newly_finished_jobs.append(updated_job)
                 self.running_jobs.remove(job)
 
@@ -540,11 +567,6 @@ class Multi(object):
                 with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'rb') as pkl_file:
                     pickle_job = pickle.load(pkl_file)
                 break
-            # except EOFError:
-            #     time.sleep(0.1)
-            #     for i in range(3):
-            #         self.logger.debug(f'EOFError: Unsuccesful opening of surf{surf_id}_face{face_id}_samp{samp_id}.pkl, retrying...')
-            #     break
             except:
                 time.sleep(0.1)
                 for i in range(3):
@@ -556,12 +578,12 @@ class Multi(object):
                     except:
                         time.sleep(0.1)
                         if i == 2:
-                            self.del_db_job(job)
-                            return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
+                            return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "FAILED"
         else:
             return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "TO DO"
         db_status = pickle_job[6]
         db_flux = pickle_job[1]
+        db_flux.job_id = flux.job_id
         # Check if the data from the db is usable.
         if len(db_flux.energy_grid) != len(flux.energy_grid) \
             or len(db_flux.temp_grid) != len(flux.temp_grid) \
@@ -585,8 +607,6 @@ class Multi(object):
                             return flux_tag, flux, surf_id, face_id, samp_len, \
                                     samp_id, "RUNNING"
                         elif queue_status == 'COMPLETED':
-                            #Delete files when job is finished
-                            self.del_db_job(job)
                             return flux_tag, db_flux, surf_id, face_id,\
                                     samp_len, samp_id, "NEWLY FINISHED"
                         elif queue_status == 'FAILED':
@@ -597,12 +617,6 @@ class Multi(object):
                 return flux_tag, flux, surf_id, face_id, samp_len, samp_id, "FAILED"
         else:
             return flux_tag, db_flux, surf_id, face_id, samp_len, samp_id, "NEWLY FINISHED"
-
-    def update_db_job_status(self, job, status):
-        flux_tag, flux, surf_id, face_id, samp_len, samp_id, old_status = job
-        with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
-            pickle.dump([flux_tag, flux, surf_id, face_id, samp_len, samp_id, status], pkl_file)
-
 
     def del_db_job(self, job):
         _0, _1, surf_id, face_id, _4, samp_id, _6 = job

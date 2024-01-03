@@ -449,6 +449,11 @@ class Multi(object):
                                 exponential=True, comments=comments, title="Micro-canonical rate")
 
     def save_run_in_db(self):
+        self.logger.info("SAVE: The run has been saved in the database.")
+        self.logger.info("SAVE: Surfaces converged:")
+        self.logger.info(f"{self.converged}")
+        self.logger.info("SAVE: Job indexes:")
+        self.logger.info(f"{self.flux_indexes}")
         if not os.path.isfile(f'rotdPy_restart.db'):
             with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                 cursor.execute("CREATE TABLE IF NOT EXISTS rotdpy_saved_runs "

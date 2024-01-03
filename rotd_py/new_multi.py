@@ -335,8 +335,8 @@ class Multi(object):
                        'Microcanonical': []}
                     #   'E-J resolved': []}
             for surf in self.dividing_surfaces:
-                if not self.converged[int(surf.surf_id)]:
-                    continue
+                # if not self.converged[int(surf.surf_id)]:
+                #     continue
                 
                 if surf.surf_id not in ignore_surf_id:
                     for key in multi_flux :
@@ -375,7 +375,7 @@ class Multi(object):
                         elif ftype == 'geometry':
                             if recording:
                                 symbols.append(line.split()[0])
-                                min_geometry.append([float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
+                                min_geometry.append([float(line.split()[1+4*output_energy_index]), float(line.split()[2+4*output_energy_index]), float(line.split()[3+4*output_energy_index])])
                             continue
                         elif line.startswith('E-J resolved:'):
                             ftype = None
@@ -421,7 +421,10 @@ class Multi(object):
             for r, e in sorted(zip(min_energies_dist[output_energy_index], min_energies[output_energy_index])):
                 sorted_r[output_energy_index].append(r)
                 sorted_e[output_energy_index].append(e)
-            data_legends_e.append(f"e{output_energy_index}_{self.sample.name}")
+            if output_energy_index == 0:
+                data_legends_e.append(f"Uncorrected")
+            else:
+                data_legends_e.append(f"{corrections[output_energy_index-1].name}({corrections[output_energy_index-1].type}) corrected")
             splines.append(False)
 
             if output_energy_index > 0.:
@@ -438,12 +441,12 @@ class Multi(object):
 
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
-                                y_label="Minimum energy (Kcal/mol)", data_legends=data_legends_e,\
-                                exponential=False, splines=splines)#, comments=comments)
+                                y_label="Energy (Kcal/mol)", data_legends=data_legends_e,\
+                                exponential=False, splines=splines, title="Sampled minimum energy")#, comments=comments)
         
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
-                                exponential=True, comments=comments)
+                                exponential=True, comments=comments, title="Micro-canonical rate")
 
     def save_run_in_db(self):
         if not os.path.isfile(f'rotdPy_restart.db'):

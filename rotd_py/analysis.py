@@ -86,7 +86,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
     return mc_rate
 
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
-                            data_legends=["y0"], comments=[""], exponential=False, splines=None):
+                            data_legends=["y0"], comments=[""], exponential=False, splines=None, title=None):
     """Function that create the input for a 2D matplotlib plot.
     x_lists: List of lists of floats.
     data: List of lists of floats.
@@ -130,10 +130,13 @@ from scipy.interpolate import make_interp_spline\n\n"""
             #content += f"ax.scatter(x{index}, y{index}, marker='x')\n"
             content += f"ax.plot(x{index}_spln, y_spln{index}, label='spln_{legend}')\n"
         else:
-            content += f"ax.scatter(x{index}, y{index}, label='{legend}', marker='x')\n"
+            content += f"ax.scatter(x{index}, y{index}, label='{legend}', marker='.')\n"
 
     if exponential:
         content += "ax.set_yscale('symlog')\n"
+
+    if title != None and isinstance(title, str):
+        content += f"ax.set_title('{title}')"
 
     content += f"""
 ax.legend(loc='lower right')

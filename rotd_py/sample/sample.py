@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
+from ase.calculators.gaussian import Gaussian
 #from amp import Amp
 
 import rotd_py
@@ -178,18 +179,36 @@ class Sample(object):
         # This is a temporary fix specific for using Amp calculator as we are not able to
         # either 1) deepcopy the Amp calculator object or 2) using MPI send/receive Amp calculator object
         # Note: this may cause some performance issue as we need to load Amp calculator for each calculation.
-        if calculator['code'][-3:] == 'amp':
+        if calculator['code'][-3:].casefold() == 'amp':
             amp_calc = Amp.load(f'{rotd_py.__path__[0]}/amp.amp')
             self.configuration.set_calculator(amp_calc)
             energy = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)
-        elif calculator['code'] == 'molpro':
+        elif calculator['code'].casefold() == 'molpro':
             label = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
             mp = Molpro(label, self.configuration, calculator['scratch'],
                         calculator['processors'])
             mp.create_input()
             mp.run()
             energy = mp.read_energy()
+        elif calculator['code'].casefold() == "gaussian":
+            #Verify the gaussian calculator
+            calculator['label'] = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
+            #Add minimum requirement
+            if 'xc' not in calculator:
+                calculator['xc'] = 'uwb97x-d'
+            if 'basis' not in calculator:
+                calculator['basis'] = 'cc-vdz'
+            if 'mem' not in calculator:
+                calculator['mem'] = '800MB'
+            if 'scf' not in calculator:
+                calculator['scf'] = 'xqc'
+            if 'command' not in calculator:
+                calculator['command'] = 'g16 < PREFIX.com > PREFIX.log' 
+            calc = Gaussian(calculator)
+
+            self.configuration.calc = calc
+            energy = self.configuration.get_potential_energy()
 
         #Counting failed samples
         if energy is None:

@@ -154,7 +154,7 @@ class Multi(object):
             try:
                 shutil.copy('molpro.tpl', self.sample.name)
             except:
-                print("Could not find qu.tpl: slurm submission template")
+                print("Could not find molpro.tpl: molpro single point template")
                 exit()
         elif self.calculator['code'][-3:].casefold() == 'amp':
             pass

@@ -633,23 +633,34 @@ class Multi(object):
                 os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
             except FileNotFoundError:
                 self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.pkl')
-        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
-            try:
-                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
-            except FileNotFoundError:
-                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.xml')
-        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
-            try:
-                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
-            except FileNotFoundError:
-                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.inp')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh'):
             try:
                 os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
             except FileNotFoundError:
                 self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.sh')
-        # if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
-        #     try:
-        #         os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
-        #     except FileNotFoundError:
-        #         self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.py')
+        match self.calculator['code'].casefold():
+            case 'molpro':
+                if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):
+                    try:
+                        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+                    except FileNotFoundError:
+                        self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.xml')
+                if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp'):
+                    try:
+                        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+                    except FileNotFoundError:
+                        self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.inp')
+            case 'gaussian':
+                if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.chk'):
+                    try:
+                        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.chk')
+                    except FileNotFoundError:
+                        self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.chk')
+                if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.com'):
+                    try:
+                        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.com')
+                    except FileNotFoundError:
+                        self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.com')
+            case _ :
+                pass
+        

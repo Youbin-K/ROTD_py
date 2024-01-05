@@ -195,17 +195,27 @@ class Sample(object):
             #Verify the gaussian calculator
             calculator['label'] = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
             #Add minimum requirement
+            if 'chk' not in calculator:
+                calculator['chk'] = calculator['label']
             if 'xc' not in calculator:
                 calculator['xc'] = 'uwb97x-d'
             if 'basis' not in calculator:
                 calculator['basis'] = 'cc-vdz'
             if 'mem' not in calculator:
-                calculator['mem'] = '800MB'
+                calculator['mem'] = '700MW'
+            if 'nprocshared' not in calculator:
+                calculator['nprocshared'] = calculator['processors']
             if 'scf' not in calculator:
                 calculator['scf'] = 'xqc'
             if 'command' not in calculator:
-                calculator['command'] = 'g16 < PREFIX.com > PREFIX.log' 
-            calc = Gaussian(calculator)
+                calculator['command'] = 'GAUSSIAN < PREFIX.com > PREFIX.log'
+
+            #Clear the calculator of useless keywords
+            for key in ['code', 'scratch', 'processors', 'queue', 'max_jobs']:
+                if key in calculator:
+                    calculator.pop(key, None)
+
+            calc = Gaussian(**calculator)
 
             self.configuration.calc = calc
             energy = self.configuration.get_potential_energy()

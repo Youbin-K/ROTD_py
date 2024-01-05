@@ -196,7 +196,7 @@ class Sample(object):
             calculator['label'] = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
             #Add minimum requirement
             if 'xc' not in calculator:
-                calculator['xc'] = 'uwb97x-d'
+                calculator['xc'] = 'uwb97xd'
             if 'basis' not in calculator:
                 calculator['basis'] = 'cc-vdz'
             if 'mem' not in calculator:
@@ -204,7 +204,12 @@ class Sample(object):
             if 'scf' not in calculator:
                 calculator['scf'] = 'xqc'
             if 'command' not in calculator:
-                calculator['command'] = 'g16 < PREFIX.com > PREFIX.log' 
+                calculator['command'] = 'g16 < PREFIX.com > PREFIX.log'
+
+            #Clear the calculator of useless keywords
+            for key in ['code', 'scratch', 'processors', 'queue', 'max_jobs']:
+                if key in calculator:
+                    calculator.pop('code', None)
             calc = Gaussian(calculator)
 
             self.configuration.calc = calc

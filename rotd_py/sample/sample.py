@@ -198,7 +198,7 @@ class Sample(object):
             if 'chk' not in calculator:
                 calculator['chk'] = calculator['label']
             if 'xc' not in calculator:
-                calculator['xc'] = 'uwb97x-d'
+                calculator['xc'] = 'uwb97xd'
             if 'basis' not in calculator:
                 calculator['basis'] = 'cc-vdz'
             if 'mem' not in calculator:

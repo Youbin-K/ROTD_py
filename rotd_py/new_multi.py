@@ -29,7 +29,7 @@ class Multi(object):
     """
 
     def __init__(self, fluxbase=None, dividing_surfaces=None, sample=None,
-                 calculator=None, selected_faces=None):
+                 calculator=None, selected_faces=None, db_entry=-1):
         """Initialize the multi flux calculation.
 
         Parameters
@@ -42,7 +42,14 @@ class Multi(object):
             The way of sampling that is going to be used in the flux calculation
         selected_faces : 
             A 1-D array determining which faces to use. If set to None, all faces are active.
-
+        db_entry : int
+            Index of the run to read from in the database.
+        saved_samples :
+            A list of lists containing the number of saved samples for each facet for each surfaces.
+        samples_id :
+            A list of lists containing the number of created samples for each facet for each surfaces.
+        converged :
+            A list of boolean indicating if the surface with corresponding index is converged.
         """
         self.dividing_surfaces = dividing_surfaces
         self.sample = sample
@@ -52,7 +59,10 @@ class Multi(object):
         self.work_queue, self.running_jobs, self.finished_jobs = [], [], []
         self.newly_finished_jobs = []
         self.show_grid_warn = True
+        self.db_entry = db_entry
+        self.run_index = 1
         num_faces = 0
+        self.first_save = True
         self.workdir = os.getcwd()
         if not os.path.isdir(self.sample.name):
             os.mkdir(self.sample.name)
@@ -129,8 +139,11 @@ class Multi(object):
             rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
         if rows:
             self.logger.info(f"RESTART: Entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
-            surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
+            surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[self.db_entry]
 
+            #Actualise the run number to save in the db
+            if index == 0:
+                self.run_index += run_index
             #Restart the jobs from the last saved indices
             self.saved_samples.append(pickle.loads(sample_list))
             self.samples_id.append([sid+1 for sid in self.saved_samples[-1]])
@@ -188,9 +201,6 @@ class Multi(object):
                     flux.flux_parameter = self.fluxbase._flux_parameter
                     flux.calculator = self.calculator
                     flux.job_id = None
-                    # flux.set_calculation()
-                    # flux.set_vol_num_max()
-                    # flux.set_fail_num_max()
                 self.logger.info(f"RESTART: Jobs will restart form indexes {self.flux_indexes[-1]}.")
         else:
             self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
@@ -493,29 +503,36 @@ class Multi(object):
         self.logger.info(f"{self.converged}")
         self.logger.info("SAVE: Job indexes:")
         self.logger.info(f"{self.flux_indexes}")
+        #create db if it doesn't exist
         if not os.path.isfile(f'rotdPy_restart.db'):
             with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                 cursor.execute("CREATE TABLE IF NOT EXISTS rotdpy_saved_runs "
-                            "(surf_id int, multi_flux blob, sample_list blob, flux_base blob)")
+                            "(surf_id int, multi_flux blob, sample_list blob, flux_base blob, run_index int)")
+                
+        if self.first_save:
+            #Add informations into db
             sql_command = "INSERT INTO rotdpy_saved_runs VALUES "\
-                          "(:surf_id, :multi_flux, :sample_list, :flux_base)"
+                            "(:surf_id, :multi_flux, :sample_list, :flux_base, :run_index)"
             for surf in self.dividing_surfaces:
                 with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                     cursor.execute(sql_command, {'surf_id': surf.surf_id,
                                                 'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
                                                 'sample_list': pickle.dumps(self.saved_samples[int(surf.surf_id)]),
-                                                'flux_base': pickle.dumps(self.fluxbase)
+                                                'flux_base': pickle.dumps(self.fluxbase),
+                                                'run_index': self.run_index
                                                 })
+            self.first_save = False
         else:
             for surf in self.dividing_surfaces:
                 with connect(f'rotdPy_restart.db', timeout=60) as cursor:
                     cursor.execute('UPDATE rotdpy_saved_runs SET multi_flux=:multi_flux, sample_list=:sample_list, flux_base=:flux_base '
-                        'WHERE surf_id = :surf_id', \
+                        'WHERE surf_id = :surf_id AND run_index = :run_index', \
                         {'surf_id': surf.surf_id,
                         'multi_flux': pickle.dumps(self.total_flux[surf.surf_id]),
                         'sample_list': pickle.dumps(self.saved_samples[int(surf.surf_id)]),
-                        'flux_base': pickle.dumps(self.fluxbase)
-                                                    })
+                        'flux_base': pickle.dumps(self.fluxbase),
+                        'run_index': self.run_index
+                        })
 
     def submit_work(self, job, procs=1):
         """

@@ -247,10 +247,11 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                if jobs_submitted == 10000:
-                    self.work_queue = self.work_queue[9999:]
+                if jobs_submitted == 4000:
+                    self.work_queue = self.work_queue[3999:]
                     jobs_submitted = 0
                     self.save_run_in_db()
+                    self.check_running_jobs()
             if initial_submission:
                 initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
@@ -263,6 +264,8 @@ class Multi(object):
                     self.newly_finished_jobs.remove(job)
                     continue
                 face_index = job_flux.sample.div_surface.get_curr_face()
+                if face_id != face_index:
+                    self.logger.warning(f'Face id not recognised for sample surf{surf_id}_face{face_id}_samp{samp_id}')
                 if face_index not in self.selected_faces[int(surf_id)]:  # HACKED !!!!!
                     self.newly_finished_jobs.remove(job)
                     continue

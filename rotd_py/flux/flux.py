@@ -47,8 +47,7 @@ class MultiFlux:
                                       flux_type=fluxbase.flux_type,
                                       flux_parameter=fluxbase._flux_parameter,
                                       sample=copy.deepcopy(sample),
-                                      calculator=calculator,
-
+                                      calculator=calculator
                                       )
             self.flux_array[i].sample.div_surface.set_face(i)
         self.logger = logging.getLogger('rotdpy')

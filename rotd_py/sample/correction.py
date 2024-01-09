@@ -9,7 +9,7 @@ class Correction():
     def __init__(self, name:str, parameters:dict, sample):
         self.name = name
         self.sample = sample
-        self.type = parameters["type"]
+        self.type = parameters["type"].casefold()
         self.default_energy = None
         parameter_missing = False
         match self.type:
@@ -22,6 +22,8 @@ class Correction():
                         parameter_missing = True
                 if not parameter_missing:
                     self.set_1d_correction(parameters)
+            case "relaxed":
+                pass
             case "custom":
                 pass
 
@@ -89,6 +91,9 @@ class Correction():
                         return 0.
                     else:
                         return self._1d_correction(distance)
+            case "relaxed":
+                pass
+        
                     
     def plot(self, xmin=0., xmax=20.):
         """Function that create a matplotlib plot of the correction"""

@@ -12,8 +12,6 @@ class MultiSample(Sample):
     both center of mass vector and the fragments themselves can rotate in any
     direction.
     For current usage, this class only considers 2 fragments system.
-
-
     """
 
     def generate_configuration(self):

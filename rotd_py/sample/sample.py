@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
+import os
 import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
@@ -179,24 +180,45 @@ class Sample(object):
         # This is a temporary fix specific for using Amp calculator as we are not able to
         # either 1) deepcopy the Amp calculator object or 2) using MPI send/receive Amp calculator object
         # Note: this may cause some performance issue as we need to load Amp calculator for each calculation.
-        if calculator['code'][-3:].casefold() == 'amp':
+        label = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
+
+        if os.path.isfile(f"{label}.rslt"):
+            with open(f'{label}.rslt', 'r') as f:
+                lines = f.readlines()
+            try:
+                energy = float(lines[0].split()[1])
+                self.weight = float(lines[1].split()[1])
+                elements = ""
+                geom = self.configuration.positions
+                for index, line in enumerate(lines[4:]):
+                    elements += line.split()[0]
+                    geom[index][0] = float(line.split()[1])
+                    geom[index][1] = float(line.split()[2])
+                    geom[index][2] = float(line.split()[3])
+                self.configuration.symbols = elements
+                self.configuration.positions = geom
+            except:
+                energy = None
+
+        elif calculator['code'][-3:].casefold() == 'amp':
             amp_calc = Amp.load(f'{rotd_py.__path__[0]}/amp.amp')
             self.configuration.set_calculator(amp_calc)
             energy = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)
         elif calculator['code'].casefold() == 'molpro':
-            label = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
+            
             mp = Molpro(label, self.configuration, calculator['scratch'],
                         calculator['processors'])
+            
             mp.create_input()
             mp.run()
             energy = mp.read_energy()
         elif calculator['code'].casefold() == "gaussian":
             #Verify the gaussian calculator
-            calculator['label'] = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
+            calculator['label'] = label
             #Add minimum requirement
             if 'chk' not in calculator:
-                calculator['chk'] = calculator['label']
+                calculator['chk'] = label
             if 'xc' not in calculator:
                 calculator['xc'] = 'uwb97xd'
             if 'basis' not in calculator:
@@ -223,6 +245,20 @@ class Sample(object):
         #Counting failed samples
         if energy is None:
             return None
+        
+        content = f"Energy: {energy} eV"
+        content += "\n"
+        content += f"Weight: {self.weight}"
+        content += "\n"
+        content += "\nGeometry:\n"
+        for index, line in enumerate(self.configuration.positions):
+            content += "{:5s} {:10.5f} {:10.5f} {:10.5f}\n".format(self.configuration.symbols[index],\
+                                                                           line[0],\
+                                                                           line[1],\
+                                                                           line[2])
+            
+        with open(f'{label}.rslt', 'w') as f:
+            f.write(content)
 
         #Energies must be in eV
         energy_index = 0
@@ -230,7 +266,7 @@ class Sample(object):
         for correction in self.corrections.values():
             energy_index += 1
             self.energies[energy_index] = (energy + correction.energy(configuration=self.configuration) - self.inf_energy)/rotd_math.Hartree
-
+            
         return self.energies
 
 

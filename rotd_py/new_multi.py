@@ -61,81 +61,18 @@ class Multi(object):
         self.logger = config_log('rotdpy')
         os.chdir(self.workdir)
         if self.dividing_surfaces is not None:
-            num_faces = [surface.get_num_faces() for surface in self.dividing_surfaces]
+            self.num_faces = [surface.get_num_faces() for surface in self.dividing_surfaces]
         if selected_faces == None:
             self.selected_faces = [range(surface.get_num_faces()) for surface in self.dividing_surfaces]
         else: #TODO: add a check on the shape of the user input selected faces
-            self.selected_faces = selected_faces 
+            self.selected_faces = selected_faces
         self.flux_indexes = []
         self.converged = []
         for index, surf in enumerate(self.dividing_surfaces):
             surf.surf_id = str(index)
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
-            #Restart db exists
-            if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
-                with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
-                    sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
-                    rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
-                if rows:
-                    self.logger.info(f"RESTART: Entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
-                    surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
-                    self.flux_indexes.append(pickle.loads(sample_list))
-                    self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
-                    old_flux_base = pickle.loads(pkl_old_flux_base)
-                    for face_index, face_flux in enumerate(self.total_flux[surf.surf_id].flux_array):
-                        self.flux_indexes[-1][face_index] = face_flux.acct_smp() + 1
-                    #Surface is converged if it has an output, and the same or lower convergence threshold
-                    if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
-                    (old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
-                     old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
-                     old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min']):
-                        self.converged.append(True)
-                        self.logger.info(f"RESTART: Surface {surf.surf_id} successfully converged. No calculations needed.")
-                    else:
-                        self.converged.append(False)
-                        self.logger.info(f"RESTART: Surface {surf.surf_id} not converged. More calculations needed.")
-                        for fidx, face_num_samples in enumerate(self.flux_indexes[-1]):
-                            #If a face has no sample, reinitialize the surface
-                            if face_num_samples == 1:
-                                self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
-                                self.total_flux[surf.surf_id].flux_array[fidx] = Flux(temp_grid=self.fluxbase.temp_grid * rotd_math.Kelv,
-                                                                                    energy_grid=self.fluxbase.energy_grid * rotd_math.Kelv,
-                                                                                    angular_grid=self.fluxbase.angular_grid,
-                                                                                    flux_type=self.fluxbase.flux_type,
-                                                                                    flux_parameter=self.fluxbase._flux_parameter,
-                                                                                    sample=copy.deepcopy(indivi_sample),
-                                                                                    calculator=self.calculator,
-                                                                                    )
-                                self.total_flux[surf.surf_id].flux_array[fidx].sample.div_surface.set_face(fidx)
-                                self.flux_indexes[int(surf.surf_id)][fidx] = 1
-                                for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
-                                    os.remove(file)
-                        self.logger.info(f"RESTART: Jobs will restart form indexes {self.flux_indexes[-1]}.")
-                else:
-                    self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
-                    self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
-                    self.flux_indexes.append([])
-                    self.converged.append(False)
-                    self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
-                                                        num_faces=num_faces[index],
-                                                        selected_faces=self.selected_faces[index],
-                                                        sample=indivi_sample,
-                                                        calculator=self.calculator)
-                    for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
-                        self.flux_indexes[int(surf.surf_id)].append(1)
-            else:
-                self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
-                self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
-                self.flux_indexes.append([])
-                self.converged.append(False)
-                self.total_flux[surf.surf_id] = MultiFlux(fluxbase=fluxbase,
-                                                    num_faces=num_faces[index],
-                                                    selected_faces=self.selected_faces[index],
-                                                    sample=indivi_sample,
-                                                    calculator=self.calculator)
-                for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
-                    self.flux_indexes[int(surf.surf_id)].append(1)
+            self.restart(index, surf, indivi_sample)
         self.ref_flux = copy.deepcopy(self.total_flux)
         #Submission script template
         self.py_tpl_str = py_tpl_str
@@ -169,6 +106,101 @@ class Multi(object):
         with open('qu.tpl') as qu_tpl_fh:
             self.qu_tpl_str = qu_tpl_fh.read()   
         os.chdir(self.workdir)
+
+    def restart(self, index, surf, indivi_sample):
+        #Restart db exists
+        if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
+            with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
+                sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
+                rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
+            if rows:
+                self.logger.info(f"RESTART: Entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
+                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
+
+                #Restart the jobs from the last saved indices
+                self.flux_indexes.append(pickle.loads(sample_list))
+
+                #Load previous multi object
+                self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
+                self.logger.info(f"RESTART: Found {len(self.total_flux[surf.surf_id].flux_array)} fluxes/facets")
+                old_flux_base = pickle.loads(pkl_old_flux_base)
+                for face_index, face_flux in enumerate(self.total_flux[surf.surf_id].flux_array):
+                    self.logger.info(f"RESTART: Flux {face_index} samples:")
+                    self.logger.info(f"""self._acct_num = {face_flux._acct_num}
+        self._fail_num = {face_flux._fail_num}
+        self._fake_num = {face_flux._fake_num}
+        self._close_num = {face_flux._close_num}""")
+                    self.flux_indexes[int()][face_index] = face_flux.acct_smp() + 1
+                #Surface is converged if it has an output, and the same or lower convergence threshold
+                if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
+                old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
+                old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
+                old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min'] and \
+                old_flux_base._flux_parameter['tot_smp_max'] >= self.fluxbase._flux_parameter['tot_smp_max']:
+                    self.converged.append(True)
+                    self.logger.info(f"RESTART: Surface {surf.surf_id} successfully converged. No calculations needed.")
+                else:
+                    self.converged.append(False)
+                    self.logger.info(f"RESTART: Surface {surf.surf_id} not converged. More calculations needed.")
+                    for fidx, face_num_samples in enumerate(self.flux_indexes[-1]):
+                        #If a face has no sample, reinitialize the surface
+                        if face_num_samples == 1:
+                            self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
+                            self.total_flux[surf.surf_id].flux_array[fidx] = Flux(temp_grid=self.fluxbase.temp_grid * rotd_math.Kelv,
+                                                                                energy_grid=self.fluxbase.energy_grid * rotd_math.Kelv,
+                                                                                angular_grid=self.fluxbase.angular_grid,
+                                                                                flux_type=self.fluxbase.flux_type,
+                                                                                flux_parameter=self.fluxbase._flux_parameter,
+                                                                                sample=copy.deepcopy(indivi_sample),
+                                                                                calculator=self.calculator,
+                                                                                )
+                            self.total_flux[surf.surf_id].flux_array[fidx].sample.div_surface.set_face(fidx)
+                            self.flux_indexes[int(surf.surf_id)][fidx] = 1
+                            for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
+                                os.remove(file)
+                    #Actualize flux parameters in multiflux
+                    self.total_flux[surf.surf_id].temp_grid = self.fluxbase.temp_grid
+                    self.total_flux[surf.surf_id].tol = self.fluxbase.tol()
+                    self.total_flux[surf.surf_id].pot_max = self.fluxbase.pot_max()
+                    self.total_flux[surf.surf_id].tot_max = self.fluxbase.tot_max()
+                    self.total_flux[surf.surf_id].selected_faces = self.selected_faces[index]
+                    #Actualize flux parameters in all fluxes
+                    for flux in self.total_flux[surf.surf_id].flux_array:
+                        flux.temp_grid = self.fluxbase.temp_grid * rotd_math.Kelv
+                        flux.energy_grid = self.fluxbase.energy_grid * rotd_math.Kelv
+                        flux.angular_grid = self.fluxbase.angular_grid
+                        flux.flux_type = self.fluxbase.flux_type
+                        flux.flux_parameter = self.fluxbase._flux_parameter
+                        flux.calculator = self.calculator
+                        flux.job_id = None
+                        flux.set_calculation()
+                        flux.set_vol_num_max()
+                        flux.set_fail_num_max()
+                    self.logger.info(f"RESTART: Jobs will restart form indexes {self.flux_indexes[-1]}.")
+            else:
+                self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
+                self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
+                self.flux_indexes.append([])
+                self.converged.append(False)
+                self.total_flux[surf.surf_id] = MultiFlux(fluxbase=self.fluxbase,
+                                                    num_faces=self.num_faces[index],
+                                                    selected_faces=self.selected_faces[index],
+                                                    sample=indivi_sample,
+                                                    calculator=self.calculator)
+                for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
+                    self.flux_indexes[int(surf.surf_id)].append(1)
+        else:
+            self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
+            self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
+            self.flux_indexes.append([])
+            self.converged.append(False)
+            self.total_flux[surf.surf_id] = MultiFlux(fluxbase=self.fluxbase,
+                                                num_faces=self.num_faces[index],
+                                                selected_faces=self.selected_faces[index],
+                                                sample=indivi_sample,
+                                                calculator=self.calculator)
+            for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
+                self.flux_indexes[int(surf.surf_id)].append(1)
        
 
     def run(self):
@@ -638,6 +670,14 @@ class Multi(object):
                 os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
             except FileNotFoundError:
                 self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.err'):
+            #Delete error file if empty
+            if os.stat(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.err').st_size == 0:
+                try:
+                    os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.err')
+                except FileNotFoundError:
+                    self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.err')
+            
         match self.calculator['code'].casefold():
             case 'molpro':
                 if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.xml'):

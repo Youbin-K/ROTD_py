@@ -114,12 +114,17 @@ from scipy.interpolate import make_interp_spline\n\n"""
     for comment in comments:
         content += f"# {comment}\n"
     
+    content += "ymin = np.inf\n"
+    content += "ymax = -np.inf\n"
+
     for index, x in enumerate(x_lists):
         content += f"x{index} = {x}\n"
         content += f"x{index}_spln = np.arange(min(x{index}), max(x{index}), 0.01)\n\n"
 
     for index, y in enumerate(data):
         content += f"y{index} = {list(y)}\n"
+        content += f"ymin = min(ymin, min(y{index}))\n"
+        content += f"ymax = min(ymax, max(y{index}))\n"
         if splines[index]:
             content += f"spln{index} = make_interp_spline(x{index}, y{index})\n"
             content += f"y_spln{index} = spln{index}(x{index}_spln)\n"
@@ -141,6 +146,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
 
     content += f"""
 ax.legend(loc='lower right')
+ax.set_ylim([ymin*0.95, ymax*1.02])
 ax.set_xlabel(r'{x_label}')
 ax.set_ylabel(r'{y_label}')
 plt.show()"""

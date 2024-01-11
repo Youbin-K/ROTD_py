@@ -503,7 +503,7 @@ class Multi(object):
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 exponential=True, comments=comments, title="Micro-canonical rate")
-        os.chdir(f"{self.workdir})
+        os.chdir(f"{self.workdir}")
 
     def plot_all_samples(self):
         os.chdir(f"{self.workdir}/{self.sample.name}")
@@ -563,7 +563,7 @@ class Multi(object):
                                 y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend,\
                                 exponential=False, splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)
 
-        os.chdir(f"{self.workdir})
+        os.chdir(f"{self.workdir}")
 
     def save_run_in_db(self):
         self.logger.info("SAVE: The run has been saved in the database.")

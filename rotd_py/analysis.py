@@ -86,7 +86,8 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
     return mc_rate
 
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
-                            data_legends=["y0"], comments=[""], exponential=False, splines=None, title=None):
+                            data_legends=["y0"], comments=[""], exponential=False, splines=None, title=None,\
+                            user_ymax=None, user_ymin=None):
     """Function that create the input for a 2D matplotlib plot.
     x_lists: List of lists of floats.
     data: List of lists of floats.
@@ -124,7 +125,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
     for index, y in enumerate(data):
         content += f"y{index} = {list(y)}\n"
         content += f"ymin = min(ymin, min(y{index}))\n"
-        content += f"ymax = min(ymax, max(y{index}))\n"
+        content += f"ymax = max(ymax, max(y{index}))\n"
         if splines[index]:
             content += f"spln{index} = make_interp_spline(x{index}, y{index})\n"
             content += f"y_spln{index} = spln{index}(x{index}_spln)\n"
@@ -144,9 +145,17 @@ from scipy.interpolate import make_interp_spline\n\n"""
     if title != None and isinstance(title, str):
         content += f"ax.set_title('{title}')"
 
+    content += "\n"
+    if user_ymin != None:
+        content += f"ymin = {user_ymin}"
+        content += "\n"
+    if user_ymax != None:
+        content += f"ymax = {user_ymax}"
+        content += "\n"    
+
     content += f"""
 ax.legend(loc='lower right')
-ax.set_ylim([ymin*0.95, ymax*1.02])
+ax.set_ylim([ymin, ymax])
 ax.set_xlabel(r'{x_label}')
 ax.set_ylabel(r'{y_label}')
 plt.show()"""

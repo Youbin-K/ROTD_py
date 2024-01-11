@@ -505,8 +505,12 @@ class Multi(object):
                                 exponential=True, comments=comments, title="Micro-canonical rate")
         os.chdir(f"{self.workdir}")
 
-    def plot_all_samples(self):
+    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None):
         os.chdir(f"{self.workdir}/{self.sample.name}")
+        if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
+            ignore_surf_id = []
+        if only_surf_id == None or not isinstance(only_surf_id, list):
+            only_surf_id = [surf.surf_id for surf in self.dividing_surfaces]
 
         all_surf_all_samp_e = []
         all_surf_all_samp_d = []
@@ -538,9 +542,13 @@ class Multi(object):
                     all_surf_all_samp_legend.append(f"trust_{self.sample.name}")
 
         for surf in self.dividing_surfaces:
+            if surf.surf_id in ignore_surf_id:
+                continue
+            if surf.surf_id not in only_surf_id:
+                continue
             all_samp_e = []
             all_samp_d = []
-            for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/*.rslt"):
+            for file in glob.glob(f"Surface_{surf.surf_id}/jobs/*.rslt"):
                 with open(f'{file}', 'r') as f:
                     lines = f.readlines()
                 energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
@@ -560,7 +568,7 @@ class Multi(object):
 
         create_matplotlib_graph(x_lists=all_surf_all_samp_d, data=all_surf_all_samp_e, name=f"{self.sample.name}_sampling",\
                                 x_label=f"{elements[scan_ref[0][0]]}{scan_ref[0][0]} to {elements[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
-                                y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend,\
+                                y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend, user_ymax=ymax,\
                                 exponential=False, splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)
 
         os.chdir(f"{self.workdir}")
@@ -741,7 +749,7 @@ class Multi(object):
                         elif queue_status == 'COMPLETED':
                             return flux_tag, db_flux, surf_id, face_id,\
                                     samp_len, samp_id, "NEWLY FINISHED"
-                        elif queue_status == 'FAILED':
+                        elif queue_status == 'FAILED' or queue_status == 'CANCELLED':
                             return flux_tag, flux, surf_id, face_id, samp_len, \
                                     samp_id, "FAILED"
                         break

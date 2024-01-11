@@ -88,7 +88,8 @@ class Multi(object):
             else:
                 self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
                 self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
-                self.flux_indexes.append([])
+                self.samples_id.append([])
+                self.saved_samples.append([])
                 self.converged.append(False)
                 self.total_flux[surf.surf_id] = MultiFlux(fluxbase=self.fluxbase,
                                                     num_faces=self.num_faces[index],
@@ -139,11 +140,14 @@ class Multi(object):
             rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
         if rows:
             self.logger.info(f"RESTART: Entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
-            surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[self.db_entry]
-
+            try:
+                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[self.db_entry]
+                if index == 0:
+                    self.run_index += run_index
+            except:
+                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
             #Actualise the run number to save in the db
-            if index == 0:
-                self.run_index += run_index
+            
             #Restart the jobs from the last saved indices
             self.saved_samples.append(pickle.loads(sample_list))
             self.samples_id.append([sid+1 for sid in self.saved_samples[-1]])
@@ -170,7 +174,7 @@ class Multi(object):
             else:
                 self.converged.append(False)
                 self.logger.info(f"RESTART: Surface {surf.surf_id} not converged. More calculations needed.")
-                for fidx, face_num_samples in enumerate(self.flux_indexes[-1]):
+                for fidx, face_num_samples in enumerate(self.samples_id[-1]):
                     #If a face has no sample, reinitialize the surface
                     if face_num_samples == 1:
                         self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
@@ -183,9 +187,9 @@ class Multi(object):
                                                                             calculator=self.calculator,
                                                                             )
                         self.total_flux[surf.surf_id].flux_array[fidx].sample.div_surface.set_face(fidx)
-                        self.flux_indexes[int(surf.surf_id)][fidx] = 1
-                        for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
-                            os.remove(file)
+                        self.samples_id[int(surf.surf_id)][fidx] = 1
+                        # for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
+                        #     os.remove(file)
                 #Actualize flux parameters in multiflux
                 self.total_flux[surf.surf_id].temp_grid = self.fluxbase.temp_grid
                 self.total_flux[surf.surf_id].tol = self.fluxbase.tol()
@@ -201,11 +205,12 @@ class Multi(object):
                     flux.flux_parameter = self.fluxbase._flux_parameter
                     flux.calculator = self.calculator
                     flux.job_id = None
-                self.logger.info(f"RESTART: Jobs will restart form indexes {self.flux_indexes[-1]}.")
+                self.logger.info(f"RESTART: Jobs will restart form indexes {self.samples_id[-1]}.")
         else:
             self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
             self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
-            self.flux_indexes.append([])
+            self.samples_id.append([])
+            self.saved_samples.append([])
             self.converged.append(False)
             self.total_flux[surf.surf_id] = MultiFlux(fluxbase=self.fluxbase,
                                                 num_faces=self.num_faces[index],
@@ -213,7 +218,8 @@ class Multi(object):
                                                 sample=indivi_sample,
                                                 calculator=self.calculator)
             for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
-                self.flux_indexes[int(surf.surf_id)].append(1)
+                self.samples_id[int(surf.surf_id)].append(1)
+                self.saved_samples[int(surf.surf_id)].append(0)
 
     def run(self):
 
@@ -311,21 +317,21 @@ class Multi(object):
                 # if continue sample for current flux and for the face index:
                 if flux_tag == FluxTag.FLUX_TAG:
                     face_index = smp_info
-                    #self.logger.info(f'Creating job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
+                    #self.logger.info(f'Creating job for face {face_index} with id {self.samples_id[int(surf_id)][face_index]}.')
                     flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                     self.work_queue.append((flux_tag, flux, surf_id, face_index, flux.samp_len(), 
-                                            self.flux_indexes[int(surf_id)][face_index], 'TO DO'))
-                    self.flux_indexes[int(surf_id)][face_index] += 1
+                                            self.samples_id[int(surf_id)][face_index], 'TO DO'))
+                    self.samples_id[int(surf_id)][face_index] += 1
 
                 elif flux_tag == FluxTag.SURF_TAG:
                     smp_num = smp_info
                     for face_index in range(0, len(smp_num)):
                         if smp_num[face_index] != 0:
-                            #self.logger.info(f'Creating SURFACE job for face {face_index} with id {self.flux_indexes[int(surf_id)][face_index]}.')
+                            #self.logger.info(f'Creating SURFACE job for face {face_index} with id {self.samples_id[int(surf_id)][face_index]}.')
                             flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                             self.work_queue.append((flux_tag, flux, surf_id, face_index,
-                                                    smp_num[face_index], self.flux_indexes[int(surf_id)][face_index], 'TO DO'))
-                            self.flux_indexes[int(surf_id)][face_index] += 1
+                                                    smp_num[face_index], self.samples_id[int(surf_id)][face_index], 'TO DO'))
+                            self.samples_id[int(surf_id)][face_index] += 1
 
                             #self.logger.info(f'{FluxTag.SURF_TAG} flux_idx {self.flux_indexes[int(surf_id)][face_index]} face {face_index} smp_num {smp_num} surface {surf_id}')
 
@@ -384,8 +390,8 @@ class Multi(object):
                        'Microcanonical': []}
                     #   'E-J resolved': []}
             for surf in self.dividing_surfaces:
-                # if not self.converged[int(surf.surf_id)]:
-                #     continue
+                if not self.converged[int(surf.surf_id)]:
+                    continue
                 
                 if surf.surf_id not in ignore_surf_id:
                     for key in multi_flux :
@@ -458,6 +464,8 @@ class Multi(object):
                         min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
                         flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
+
+
             #Prepare micro-canonical plot
             mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
             temp_list.append(self.fluxbase.temp_grid.tolist())
@@ -476,7 +484,7 @@ class Multi(object):
                 data_legends_e.append(f"{corrections[output_energy_index-1].name}({corrections[output_energy_index-1].type}) corrected")
             splines.append(False)
 
-            if output_energy_index > 0.:
+            if output_energy_index > 0:
                 if corrections[output_energy_index-1].type == "1d":
                     sorted_e.append(corrections[output_energy_index-1].e_sample)
                     sorted_r.append(corrections[output_energy_index-1].r_sample)
@@ -486,8 +494,7 @@ class Multi(object):
                     sorted_r.append(corrections[output_energy_index-1].r_trust)
                     splines.append(True)
                     data_legends_e.append(f"trust_{self.sample.name}")
-
-
+        
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Energy (Kcal/mol)", data_legends=data_legends_e,\
@@ -496,13 +503,74 @@ class Multi(object):
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 exponential=True, comments=comments, title="Micro-canonical rate")
+        os.chdir(f"{self.workdir})
+
+    def plot_all_samples(self):
+        os.chdir(f"{self.workdir}/{self.sample.name}")
+
+        all_surf_all_samp_e = []
+        all_surf_all_samp_d = []
+        all_surf_all_samp_splines = []
+        all_surf_all_samp_legend = []
+        molec_len = len(self.sample.fragments[0].symbols) + len(self.sample.fragments[1].symbols)
+        elements = []
+        elements.extend(self.sample.fragments[0].symbols)
+        elements.extend(self.sample.fragments[1].symbols)
+
+        corrections = []
+        for correction in self.sample.corrections.values():
+            corrections.append(correction)
+            if correction.type == "1d":
+                save_min_energy_dist = True
+                scan_ref = correction.scan_ref
+                #correction.plot()
+
+        for output_energy_index in range(self.sample.energy_size):
+            if output_energy_index > 0:
+                if corrections[output_energy_index-1].type == "1d":
+                    all_surf_all_samp_e.append(corrections[output_energy_index-1].e_sample)
+                    all_surf_all_samp_d.append(corrections[output_energy_index-1].r_sample)
+                    all_surf_all_samp_splines.append(True)
+                    all_surf_all_samp_legend.append(f"sample_{self.sample.name}")
+                    all_surf_all_samp_e.append(corrections[output_energy_index-1].e_trust)
+                    all_surf_all_samp_d.append(corrections[output_energy_index-1].r_trust)
+                    all_surf_all_samp_splines.append(True)
+                    all_surf_all_samp_legend.append(f"trust_{self.sample.name}")
+
+        for surf in self.dividing_surfaces:
+            all_samp_e = []
+            all_samp_d = []
+            for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/*.rslt"):
+                with open(f'{file}', 'r') as f:
+                    lines = f.readlines()
+                energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
+                geom = np.zeros((molec_len,3))
+                for index, line in enumerate(lines[4:]):
+                    geom[index][0] = float(line.split()[1])
+                    geom[index][1] = float(line.split()[2])
+                    geom[index][2] = float(line.split()[3])
+                configuration = ase.Atoms(elements, positions=geom)
+                distance = configuration.get_distance(scan_ref[0][0], scan_ref[0][1])
+                all_samp_e.append(energy)
+                all_samp_d.append(distance)
+            all_surf_all_samp_e.append(all_samp_e)
+            all_surf_all_samp_d.append(all_samp_d)
+            all_surf_all_samp_splines.append(False)
+            all_surf_all_samp_legend.append(f"Surf_{surf.surf_id}")
+
+        create_matplotlib_graph(x_lists=all_surf_all_samp_d, data=all_surf_all_samp_e, name=f"{self.sample.name}_sampling",\
+                                x_label=f"{elements[scan_ref[0][0]]}{scan_ref[0][0]} to {elements[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
+                                y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend,\
+                                exponential=False, splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)
+
+        os.chdir(f"{self.workdir})
 
     def save_run_in_db(self):
         self.logger.info("SAVE: The run has been saved in the database.")
         self.logger.info("SAVE: Surfaces converged:")
         self.logger.info(f"{self.converged}")
         self.logger.info("SAVE: Job indexes:")
-        self.logger.info(f"{self.flux_indexes}")
+        self.logger.info(f"{self.saved_samples}")
         #create db if it doesn't exist
         if not os.path.isfile(f'rotdPy_restart.db'):
             with connect(f'rotdPy_restart.db', timeout=60) as cursor:

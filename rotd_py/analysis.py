@@ -120,8 +120,9 @@ from scipy.interpolate import make_interp_spline\n\n"""
 
     for index, y in enumerate(data):
         content += f"y{index} = {list(y)}\n"
-        content += f"spln{index} = make_interp_spline(x{index}, y{index})\n"
-        content += f"y_spln{index} = spln{index}(x{index}_spln)\n"
+        if splines[index]:
+            content += f"spln{index} = make_interp_spline(x{index}, y{index})\n"
+            content += f"y_spln{index} = spln{index}(x{index}_spln)\n"
 
     content += "\nfig, ax = plt.subplots()\n"
 

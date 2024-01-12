@@ -4,7 +4,7 @@ import os
 import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
-from ase.calculators.gaussian import Gaussian
+from ase_modules.calculators.gaussian import Gaussian
 #from amp import Amp
 
 import rotd_py

@@ -472,6 +472,11 @@ class Multi(object):
             comments.append(f"Sources: {flux_origin['Microcanonical']}")
             data_legends_r.append(f"rate_{self.sample.name}")
 
+            if output_energy_index == 0:
+                os.chdir(f"{self.workdir}")
+                self.plot_all_samples(only_surf_id=flux_origin['Microcanonical'], name=f'selected_samples_{output_energy_index}', ymax=35)
+                os.chdir(f"{self.workdir}/{self.sample.name}")
+
             #Prepare min energy plot
             sorted_r.append([])
             sorted_e.append([])
@@ -503,14 +508,16 @@ class Multi(object):
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 exponential=True, comments=comments, title="Micro-canonical rate")
+
         os.chdir(f"{self.workdir}")
 
-    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None):
+    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None, name="sampling"):
         os.chdir(f"{self.workdir}/{self.sample.name}")
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
         if only_surf_id == None or not isinstance(only_surf_id, list):
             only_surf_id = [surf.surf_id for surf in self.dividing_surfaces]
+
 
         all_surf_all_samp_e = []
         all_surf_all_samp_d = []
@@ -566,7 +573,7 @@ class Multi(object):
             all_surf_all_samp_splines.append(False)
             all_surf_all_samp_legend.append(f"Surf_{surf.surf_id}")
 
-        create_matplotlib_graph(x_lists=all_surf_all_samp_d, data=all_surf_all_samp_e, name=f"{self.sample.name}_sampling",\
+        create_matplotlib_graph(x_lists=all_surf_all_samp_d, data=all_surf_all_samp_e, name=f"{self.sample.name}_{name}",\
                                 x_label=f"{elements[scan_ref[0][0]]}{scan_ref[0][0]} to {elements[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend, user_ymax=ymax,\
                                 exponential=False, splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)

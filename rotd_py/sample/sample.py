@@ -237,10 +237,24 @@ class Sample(object):
                 if key in calculator:
                     calculator.pop(key, None)
 
+            for correction in self.corrections.values():
+                if correction.type == "counterpoise":
+                    calculator['fragment1'] = f"{correction.fragments_indexes[0]};{correction.fragment1_charge};{correction.fragment1_mult}"
+                    calculator['fragment2'] = f"{correction.fragments_indexes[1]};{correction.fragment2_charge};{correction.fragment2_mult}"
+                    break
             calc = Gaussian(**calculator)
 
             self.configuration.calc = calc
             energy = self.configuration.get_potential_energy()
+
+            for correction in self.corrections.values():
+                if correction.type == "counterpoise":
+                    with open(f'{label}.log', 'r') as f:
+                        lines = f.readlines()
+                    for line in lines:
+                        if "SCF Done" in line:
+                            energy = float(line.split()[4])*rotd_math.Hartree
+                            break
 
         #Counting failed samples
         if energy is None:

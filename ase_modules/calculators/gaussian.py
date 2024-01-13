@@ -119,6 +119,33 @@ class Gaussian(FileIOCalculator):
         FileIOCalculator.write_input(self, atoms, properties, system_changes)
         write(self.label + '.com', atoms, properties=properties,
               format='gaussian-in', parallel=False, **self.parameters)
+        if 'fragment1' in self.parameters:
+            f1_indexes = [int(idx) for idx in self.parameters['fragment1'].split(';')[0][1:-1].split(',')]
+            f1_charge = int(self.parameters['fragment1'].split(';')[1])
+            f1_mult = int(self.parameters['fragment1'].split(';')[2])
+            f2_indexes = [int(idx) for idx in self.parameters['fragment2'].split(';')[0][1:-1].split(',')]
+            f2_charge = int(self.parameters['fragment2'].split(';')[1])
+            f2_mult = int(self.parameters['fragment2'].split(';')[2])
+            start = 100000
+            with open(f'{self.label}.com', 'r') as f:
+                lines = f.readlines()
+            for index, line in enumerate(lines):
+                if 'fragment1' in line:
+                    lines.pop(index)
+                    lines[index] = "Counterpoise=2\n"
+                if 'Gaussian input prepared by ASE' in line:
+                    start = index + 2
+                if index == start:
+                    lines[index] = f"{line[:-1].split()[0]},{line[:-1].split()[1]}" + f" {f1_charge},{f1_mult} {f2_charge},{f2_mult}" + "\n"
+                if index > start:
+                    if index-(start+1) in f1_indexes:
+                        lines[index] = f"{line.split()[0]}" + "(fragment=1)" + f"{line.split(line.split()[0])[1]}"
+                    elif index-(start+1) in f2_indexes:
+                        lines[index] = f"{line.split()[0]}" + "(fragment=2)" + f"{line.split(line.split()[0])[1]}"
+            
+            with open(f'{self.label}.com', 'w') as f:
+                for line in lines:
+                    f.write(line)
 
     def read_results(self):
         output = read(self.label + '.log', format='gaussian-out')

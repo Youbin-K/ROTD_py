@@ -24,8 +24,20 @@ class Correction():
                     self.set_1d_correction(parameters)
             case "relaxed":
                 pass
+            case "counterpoise":
+                self.logger.warning(f"Counterpoise: correction is only implemented for gaussian calculator")
+                self.set_counterpoise()
             case "custom":
                 pass
+
+    def set_counterpoise(self):
+        self.fragments_indexes = []
+        self.fragments_indexes.append([index for index in range(len(self.sample.fragments[0].symbols))])
+        self.fragments_indexes.append([index+len(self.sample.fragments[0].symbols) for index in range(len(self.sample.fragments[1].symbols))])
+        self.fragment1_charge = int(sum(self.sample.fragments[0].get_initial_charges()))
+        self.fragment2_charge = int(sum(self.sample.fragments[1].get_initial_charges()))
+        self.fragment1_mult = 1
+        self.fragment2_mult = 1
 
     def set_1d_correction(self, parameters:dict):
         """Function that takes scan relative energies in Kcal
@@ -68,6 +80,16 @@ class Correction():
         self.scan_ref = []
         for scr in scan_ref:
             self.scan_ref.append([scr[0], scr[1]+len(self.sample.fragments[0].positions)])
+    
+    def basis_set_superposition_error(self, configuration):
+        with open(f'{configuration.calc.label}.log', 'r') as f:
+            lines = f.readlines()
+        for line in reversed(lines):
+            if 'BSSE energy' in line:
+                bsse = float(line.split()[3])*rotd_math.Hartree
+                break
+
+        return bsse
 
     def energy(self, configuration=None, distance=None):
         if self.default_energy != None:
@@ -91,6 +113,8 @@ class Correction():
                         return 0.
                     else:
                         return self._1d_correction(distance)
+            case 'counterpoise':
+                return self.basis_set_superposition_error(configuration)
             case "relaxed":
                 pass
         

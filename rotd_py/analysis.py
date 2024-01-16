@@ -140,7 +140,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
             content += f"ax.scatter(x{index}, y{index}, label='{legend}', marker='.')\n"
 
     if exponential:
-        content += "ax.set_yscale('symlog')\n"
+        content += "ax.set_yscale('log')\n"
 
     if title != None and isinstance(title, str):
         content += f"ax.set_title('{title}')"

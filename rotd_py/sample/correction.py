@@ -17,7 +17,7 @@ class Correction():
                 necessary_data = ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
                 for key in necessary_data:
                     if key not in parameters:
-                        self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
+                        # self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
                         self.default_energy = 0.
                         parameter_missing = True
                 if not parameter_missing:
@@ -25,7 +25,7 @@ class Correction():
             case "relaxed":
                 pass
             case "counterpoise":
-                self.logger.warning(f"Counterpoise: correction is only implemented for gaussian calculator")
+                # self.logger.warning(f"Counterpoise: correction is only implemented for gaussian calculator")
                 self.set_counterpoise()
             case "custom":
                 pass

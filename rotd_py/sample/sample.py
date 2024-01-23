@@ -1,11 +1,12 @@
 from abc import ABCMeta, abstractmethod
 
 import os
+import copy
 import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
 from ase_modules.calculators.gaussian import Gaussian
-#from amp import Amp
+# from amp import Amp
 
 import rotd_py
 from rotd_py.system import MolType
@@ -214,39 +215,42 @@ class Sample(object):
             mp.run()
             energy = mp.read_energy()
         elif calculator['code'].casefold() == "gaussian":
+            new_calc = copy.deepcopy(calculator)
             #Verify the gaussian calculator
-            calculator['label'] = label
+            new_calc['label'] = label
             #Add minimum requirement
-            if 'chk' not in calculator:
-                calculator['chk'] = label
-            if 'xc' not in calculator:
-                calculator['xc'] = 'uwb97xd'
-            if 'basis' not in calculator:
-                calculator['basis'] = 'cc-vdz'
-            if 'mem' not in calculator:
-                calculator['mem'] = '700MW'
-            if 'nprocshared' not in calculator:
-                calculator['nprocshared'] = calculator['processors']
-            if 'scf' not in calculator:
-                calculator['scf'] = 'xqc'
-            if 'command' not in calculator:
-                calculator['command'] = 'GAUSSIAN < PREFIX.com > PREFIX.log'
+            if 'chk' not in new_calc:
+                new_calc['chk'] = label
+            if 'xc' not in new_calc:
+                new_calc['xc'] = 'uwb97xd'
+            if 'basis' not in new_calc:
+                new_calc['basis'] = 'cc-vdz'
+            if 'mem' not in new_calc:
+                new_calc['mem'] = '700MW'
+            if 'nprocshared' not in new_calc:
+                calculator['nprocshared'] = new_calc['processors']
+            if 'scf' not in new_calc:
+                new_calc['scf'] = 'xqc'
+            if 'command' not in new_calc:
+                new_calc['command'] = 'GAUSSIAN < PREFIX.com > PREFIX.log'
 
             #Clear the calculator of useless keywords
             for key in ['code', 'scratch', 'processors', 'queue', 'max_jobs']:
-                if key in calculator:
-                    calculator.pop(key, None)
+                if key in new_calc:
+                    new_calc.pop(key, None)
 
             for correction in self.corrections.values():
                 if correction.type == "counterpoise":
-                    calculator['fragment1'] = f"{correction.fragments_indexes[0]};{correction.fragment1_charge};{correction.fragment1_mult}"
-                    calculator['fragment2'] = f"{correction.fragments_indexes[1]};{correction.fragment2_charge};{correction.fragment2_mult}"
+                    new_calc['fragment1'] = f"{correction.fragments_indexes[0]};{correction.fragment1_charge};{correction.fragment1_mult}"
+                    new_calc['fragment2'] = f"{correction.fragments_indexes[1]};{correction.fragment2_charge};{correction.fragment2_mult}"
                     break
-            calc = Gaussian(**calculator)
+            calc = Gaussian(**new_calc)
 
             self.configuration.calc = calc
             energy = self.configuration.get_potential_energy()
-
+        
+        #Needs to be separated to recover correct energy if CP correction is used.
+        if calculator['code'].casefold() == "gaussian":
             for correction in self.corrections.values():
                 if correction.type == "counterpoise":
                     with open(f'{label}.log', 'r') as f:

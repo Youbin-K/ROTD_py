@@ -221,13 +221,15 @@ class Multi(object):
                 self.samples_id[int(surf.surf_id)].append(1)
                 self.saved_samples[int(surf.surf_id)].append(0)
 
-    def run(self):
+    def run(self, save_freq=2000):
 
         os.chdir(self.sample.name)
         self.logger.info('Starting rotdpy run')
         first_job = True
         jobs_submitted = 0
         initial_submission = 0
+        finished_samples_count = 0
+        n_saves = 1
 
         """Keep submitting jobs as long as there is work to do"""
         num_surfaces = len(self.total_flux)
@@ -265,11 +267,10 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                if jobs_submitted == 4000:
-                    self.work_queue = self.work_queue[3999:]
-                    jobs_submitted = 0
-                    self.save_run_in_db()
-                    self.check_running_jobs()
+                # if jobs_submitted == 4000:
+                #     self.work_queue = self.work_queue[3999:]
+                #     jobs_submitted = 0
+                #     self.check_running_jobs()
             if initial_submission:
                 initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
@@ -302,6 +303,11 @@ class Multi(object):
                 curr_flux.ej_var += job_flux.ej_var
 
                 self.saved_samples[int(surf_id)][face_index] += 1
+                finished_samples_count += 1
+
+                if finished_samples_count > save_freq*n_saves:
+                    self.save_run_in_db()
+                    n_saves += 1
 
                 #self.logger.info(f'Successful samplings so far for face {face_index}: {curr_flux._acct_num}') # {job_flux.close_smp()} {job_flux.face_smp()} {job_flux.fail_smp()} \
                             #{job_flux.temp_sum} {job_flux.temp_var} {job_flux.e_sum} {job_flux.e_var}')
@@ -346,7 +352,11 @@ class Multi(object):
                     raise ValueError("The flux tag is INVALID")
                 self.finished_jobs.append(job)
                 self.newly_finished_jobs.remove(job)
-        self.save_run_in_db()
+        if finished_samples_count != 0 :
+            self.save_run_in_db()
+        else:
+            logger.info("Run finished without new samples.")
+        logger.info("Correct termination of rotdpy.")
 
     def print_results(self, ignore_surf_id=None, dynamical_correction=1):
         os.chdir(f"{self.workdir}/{self.sample.name}")
@@ -558,7 +568,11 @@ class Multi(object):
             for file in glob.glob(f"Surface_{surf.surf_id}/jobs/*.rslt"):
                 with open(f'{file}', 'r') as f:
                     lines = f.readlines()
-                energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
+                try:
+                    energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
+                except:
+                    self.logger.warning(f'Skipping {file} because empty.')
+                    continue
                 geom = np.zeros((molec_len,3))
                 for index, line in enumerate(lines[4:]):
                     geom[index][0] = float(line.split()[1])

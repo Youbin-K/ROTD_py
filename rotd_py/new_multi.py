@@ -29,7 +29,7 @@ class Multi(object):
     """
 
     def __init__(self, fluxbase=None, dividing_surfaces=None, sample=None,
-                 calculator=None, selected_faces=None, db_entry=-1):
+                 calculator=None, selected_faces=None, db_entry=-1, from_rslt=False):
         """Initialize the multi flux calculation.
 
         Parameters
@@ -83,9 +83,20 @@ class Multi(object):
             surf.surf_id = str(index)
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
-            if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
+            if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db") and from_rslt == False:
                 self.restart(index, surf, indivi_sample)
             else:
+                if index == 0:
+                    if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db"):
+                        with connect(f'{self.sample.name}/rotdPy_restart.db', timeout=60) as cursor:
+                            sql_cmd = 'SELECT * FROM rotdpy_saved_runs WHERE surf_id=?'
+                            rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
+                        if rows:
+                            try:
+                                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[-1]
+                                self.run_index += run_index
+                            except:
+                                pass
                 self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
                 self.logger.info(f"RESTART: Surface {surf.surf_id} initialized from scratch.")
                 self.samples_id.append([])
@@ -145,7 +156,7 @@ class Multi(object):
                 if index == 0:
                     self.run_index += run_index
             except:
-                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base = rows[-1]
+                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[-1]
             #Actualise the run number to save in the db
             
             #Restart the jobs from the last saved indices
@@ -355,8 +366,8 @@ class Multi(object):
         if finished_samples_count != 0 :
             self.save_run_in_db()
         else:
-            logger.info("Run finished without new samples.")
-        logger.info("Correct termination of rotdpy.")
+            self.logger.info("Run finished without new samples.")
+        self.logger.info("Correct termination of rotdpy.")
 
     def print_results(self, ignore_surf_id=None, dynamical_correction=1):
         os.chdir(f"{self.workdir}/{self.sample.name}")

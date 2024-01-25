@@ -48,6 +48,7 @@ class Nonlinear(Fragment):
     def set_labframe_positions(self):
 
         mfo = self.get_rotation_matrix()
+        #Return fragment coordinates in bohr
         orig_mf_pos = self.get_molframe_positions()
         new_com = self.get_labframe_com()
         for i in range(0, self.get_global_number_of_atoms()):

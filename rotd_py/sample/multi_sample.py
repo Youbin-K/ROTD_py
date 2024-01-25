@@ -146,8 +146,11 @@ class MultiSample(Sample):
             lf_pivot = np.zeros(3)
             return [SampTag.SAMP_SUCCESS, lfactor]
         elif frag.molecule_type == MolType.NONLINEAR:
+            #reorientate the pivot point according to the fragment reorientation
+            #during set_molframe_positions()
+            lf_temp = np.dot(self.div_surface.get_pivot_point(frag_index, face), frag.frag_array['orig_mfo'])
             # return pivot_point_vector in molecule frame * rotation matrix
-            lf_temp = frag.mf2lf(self.div_surface.get_pivot_point(frag_index, face))
+            lf_temp = frag.mf2lf(lf_temp)
             for i in range(0, len(lf_pivot)):
                 lf_pivot[i] = lf_temp[i]
             return [SampTag.SAMP_SUCCESS, lfactor]

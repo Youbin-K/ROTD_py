@@ -72,7 +72,7 @@ class Correction():
         y_spln_sample = spln_sample(x_spln_1d_correction)
         y_spln_trust = spln_trust(x_spln_1d_correction)
 
-        y_1d_correction = np.subtract(np.asarray(y_spln_sample), np.asarray(y_spln_trust))
+        y_1d_correction = np.subtract(np.asarray(y_spln_trust), np.asarray(y_spln_sample))
 
         self._1d_correction = make_interp_spline(x_spln_1d_correction, y_1d_correction)
 
@@ -87,9 +87,9 @@ class Correction():
         for line in reversed(lines):
             if 'BSSE energy' in line:
                 bsse = float(line.split()[3])*rotd_math.Hartree
-                break
+                return bsse
 
-        return bsse
+        return 0.0
 
     def energy(self, configuration=None, distance=None):
         if self.default_energy != None:

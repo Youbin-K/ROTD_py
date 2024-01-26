@@ -208,8 +208,7 @@ class Sample(object):
             self.configuration.set_calculator(None)
         elif calculator['code'].casefold() == 'molpro':
             
-            mp = Molpro(label, self.configuration, calculator['scratch'],
-                        calculator['processors'])
+            mp = Molpro(label, self.configuration, calculator.copy())
             
             mp.create_input()
             mp.run()
@@ -226,7 +225,10 @@ class Sample(object):
             if 'basis' not in new_calc:
                 new_calc['basis'] = 'cc-vdz'
             if 'mem' not in new_calc:
-                new_calc['mem'] = '700MW'
+                new_calc['mem'] = '500MW'
+            else:
+                if isinstance(new_calc['mem'], int):
+                    new_calc['mem'] = f"{new_calc['mem']}MW"
             if 'nprocshared' not in new_calc:
                 calculator['nprocshared'] = new_calc['processors']
             if 'scf' not in new_calc:

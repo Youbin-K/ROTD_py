@@ -677,6 +677,18 @@ class Multi(object):
             with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
                 pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
 
+            if 'mem' in self.calculator:
+                if isinstance(self.calculator['mem'], int):
+                    #default unit is MW in calculator
+                    memory_in_MW = self.calculator['mem']
+                else:
+                    self.logger.warning("The memory in the calculator should be an integer in MW. Value set to 500MW")
+                    memory_in_MW = 500
+            else:
+                self.logger.warning("No 'mem' specified in the calculator. Value set to 500MW")
+                memory_in_MW = 500
+
+            memory_in_Mb = memory_in_MW * 8.5
             # Launch the job
             os.chdir(f'Surface_{surf_id}/jobs')
             with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:
@@ -687,7 +699,8 @@ class Multi(object):
                 qu_job_fh.write(self.qu_tpl_str.format(surf_id=surf_id,
                                                     face_id=face_id,
                                                     samp_id=samp_id,
-                                                    procs=procs,))
+                                                    procs=procs,
+                                                    mem=memory_in_Mb))
             stdout, stderr = Popen(f'{self.sub_cmd} surf{surf_id}_face{face_id}_samp{samp_id}.sh',
                                 shell=True, stdout=PIPE,
                                 stderr=PIPE).communicate()

@@ -131,7 +131,11 @@ class Multi(object):
                 print("Could not find molpro.tpl: molpro single point template")
                 print("Using rotdPy integrated template, updated from calculator.")
         elif self.calculator['code'][-3:].casefold() == 'amp':
-            pass
+            if os.path.isfile('molpro.tpl'):
+                shutil.copy(f"{self.calculator['code']}", self.sample.name)
+            else:
+                print("Could not find amp file in submission directory")
+                exit()
         os.chdir(f"{self.workdir}/{self.sample.name}")
         for surface_id in range(0, len(self.dividing_surfaces)):
             if not os.path.isdir(f'Surface_{surface_id}'):

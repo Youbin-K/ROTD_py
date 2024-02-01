@@ -202,7 +202,7 @@ class Sample(object):
                 energy = None
 
         elif calculator['code'][-3:].casefold() == 'amp':
-            amp_calc = Amp.load(f'{rotd_py.__path__[0]}/amp.amp')
+            amp_calc = Amp.load(f"../../{calculator['code'][-3:]}")
             self.configuration.set_calculator(amp_calc)
             energy = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)

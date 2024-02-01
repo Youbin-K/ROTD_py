@@ -100,7 +100,7 @@ class Correction():
                     if distance > min(max(self.r_trust), max(self.r_sample)):
                         return 0.
                     elif distance < max(min(self.r_trust), min(self.r_sample)):
-                        return 0.
+                        return self._1d_correction(max(min(self.r_trust), min(self.r_sample)))
                     else:
                         return self._1d_correction(distance)
                 distance = np.inf

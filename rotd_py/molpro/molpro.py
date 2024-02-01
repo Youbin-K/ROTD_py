@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import re
+from dataclasses import dataclass
 import rotd_py.rotd_math as rotd_math
 import math
 from rotd_py.molpro.rotdpy_molpro_template import default_molpro_template
@@ -44,10 +45,11 @@ class Molpro:
             self.nelectron += n
 
         self.charge = 0
-        for n in self.mol.charges:
+        for n in self.mol.get_initial_charges():
             self.charge += n
 
         self.nelectron -= self.charge
+
         if 'spin' in self.calc:
             self.spin = self.calc['spin']
         else:
@@ -61,6 +63,8 @@ class Molpro:
                 self.memory_in_MW = 500
         else:
             self.memory_in_MW = 500
+
+        self.symm = 1
         
 
     def create_input(self):
@@ -92,7 +96,7 @@ class Molpro:
             options = "GPRINT,ORBITALS,ORBEN,CIVECTOR \nGTHRESH,energy=1.d-7 \nangstrom \n orient,noorient\n nosym"
             basis = f"basis = {self.calc['basis']}"
                 
-            method = " {rhf;wf," + f"{self.nelectron},{self.symm},{self.spin},{self.species.charge}" + "}\n\n"
+            method = " {rhf;wf," + f"{self.nelectron},{self.symm},{self.spin},{self.charge}" + "}\n\n"
 
             match regex_in(self.calc['method']):
                 case r".*caspt2\([0-9]+,[0-9]+\)":

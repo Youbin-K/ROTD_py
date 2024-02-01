@@ -125,11 +125,11 @@ class Multi(object):
         elif self.calculator['queue'].casefold() == 'mpi':
             pass
         if self.calculator['code'].casefold() == 'molpro':
-            try:
+            if os.path.isfile('molpro.tpl'):
                 shutil.copy('molpro.tpl', self.sample.name)
-            except:
+            else:
                 print("Could not find molpro.tpl: molpro single point template")
-                exit()
+                print("Using rotdPy integrated template, updated from calculator.")
         elif self.calculator['code'][-3:].casefold() == 'amp':
             pass
         os.chdir(f"{self.workdir}/{self.sample.name}")
@@ -491,12 +491,17 @@ class Multi(object):
             mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
             temp_list.append(self.fluxbase.temp_grid.tolist())
             comments.append(f"Sources: {flux_origin['Microcanonical']}")
-            data_legends_r.append(f"rate_{self.sample.name}")
-
             if output_energy_index == 0:
-                os.chdir(f"{self.workdir}")
+                data_legends_r.append("Uncorrected Microcanonical rate")
+            else:
+                data_legends_r.append(f"{corrections[output_energy_index-1].name}-corrected Microcanonical rate")
+
+            os.chdir(f"{self.workdir}")
+            if output_energy_index == 0:
                 self.plot_all_samples(only_surf_id=flux_origin['Microcanonical'], name=f'selected_samples_{output_energy_index}', ymax=35)
-                os.chdir(f"{self.workdir}/{self.sample.name}")
+            else:
+                self.plot_all_samples(only_surf_id=flux_origin['Microcanonical'], name=f'selected_samples_{output_energy_index}', ymax=35, correc=corrections[output_energy_index-1])
+            os.chdir(f"{self.workdir}/{self.sample.name}")
 
             #Prepare min energy plot
             sorted_r.append([])
@@ -532,7 +537,7 @@ class Multi(object):
 
         os.chdir(f"{self.workdir}")
 
-    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None, name="sampling"):
+    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None, name="sampling", correc=None):
         os.chdir(f"{self.workdir}/{self.sample.name}")
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
@@ -555,8 +560,8 @@ class Multi(object):
             if correction.type == "1d":
                 save_min_energy_dist = True
                 scan_ref = correction.scan_ref
-                #correction.plot()
 
+        #Add scans to the plot if available
         for output_energy_index in range(self.sample.energy_size):
             if output_energy_index > 0:
                 if corrections[output_energy_index-1].type == "1d":
@@ -580,7 +585,16 @@ class Multi(object):
                 with open(f'{file}', 'r') as f:
                     lines = f.readlines()
                 try:
-                    energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
+                    if correc == None:
+                        energy = ((float(lines[0].split()[1])-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
+                    else:
+                        smbls = []
+                        config = []
+                        for idx, line in enumerate(lines[4:]):
+                            smbls.append(line.split()[0])
+                            config.append([float(line.split()[1]), float(line.split()[2]), float(line.split()[3])])
+                        samp = ase.Atoms(smbls, positions=config)
+                        energy = ((float(lines[0].split()[1])+correc.energy(configuration=samp)-self.sample.inf_energy)/rotd_math.Hartree)/rotd_math.Kcal
                 except:
                     self.logger.warning(f'Skipping {file} because empty.')
                     continue
@@ -688,7 +702,7 @@ class Multi(object):
                 self.logger.warning("No 'mem' specified in the calculator. Value set to 500MW")
                 memory_in_MW = 500
 
-            memory_in_Mb = memory_in_MW * 8.5
+            memory_in_Mb = np.trunc(memory_in_MW * 8.5).astype(int)
             # Launch the job
             os.chdir(f'Surface_{surf_id}/jobs')
             with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:

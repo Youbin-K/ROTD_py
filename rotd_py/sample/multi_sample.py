@@ -29,7 +29,7 @@ class MultiSample(Sample):
             Return SampTag to indicate whether the sample is valid or not.
 
         """
-        print ("Let's start with generating the config")
+        #print ("Let's start with generating the config")
         # define essential parameters:
         total_mass = 0
         for frag in self.fragments:

@@ -6,7 +6,7 @@ from ase.constraints import FixAtoms
 
 class Nonlinear(Fragment):
     """This class is the rotation manipulation correspondent to Nonlinear molecule."""
-    print ("Welcome to Nonlinear molecule")
+    #print ("Welcome to Nonlinear molecule")
     def set_molecule_type(self):
 
         self.frag_array['mol_type'] = MolType.NONLINEAR
@@ -15,7 +15,7 @@ class Nonlinear(Fragment):
 #            np.sqrt(2.0 * np.pi * np.prod(self.get_inertia_moments()))
         self.frag_array['stat_sum'] = 1
  #           np.sqrt(2.0 * np.pi * np.prod(self.get_inertia_moments()))
-        print ("setting molecule_type_in_non_linear 1st")
+        #print ("setting molecule_type_in_non_linear 1st")
 
     def lf2mf(self, lf_vector):
 

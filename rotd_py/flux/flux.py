@@ -100,7 +100,6 @@ class MultiFlux:
         if proj_smp_num > 1.:
             max_smp = -1
             face = 0
-            #for i in range(0, self.num_faces):
             for i in self.selected_faces:  # HACKED !!!
                 smp = proj_smp_num * \
                     self.flux_array[i].pot_fluctuation(min_index, 0) / tot_pot_var

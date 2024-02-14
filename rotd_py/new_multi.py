@@ -94,7 +94,7 @@ class Multi(object):
                         if rows:
                             try:
                                 surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[-1]
-                                self.run_index += run_index
+                                self.run_index = run_index +1
                             except:
                                 pass
                 self.logger.info(f"RESTART: Database {self.sample.name}/rotdPy_restart.db was not found.")
@@ -282,10 +282,6 @@ class Multi(object):
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
-                # if jobs_submitted == 4000:
-                #     self.work_queue = self.work_queue[3999:]
-                #     jobs_submitted = 0
-                #     self.check_running_jobs()
             if initial_submission:
                 initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
@@ -323,9 +319,6 @@ class Multi(object):
                 if finished_samples_count > save_freq*n_saves:
                     self.save_run_in_db()
                     n_saves += 1
-
-                #self.logger.info(f'Successful samplings so far for face {face_index}: {curr_flux._acct_num}') # {job_flux.close_smp()} {job_flux.face_smp()} {job_flux.fail_smp()} \
-                            #{job_flux.temp_sum} {job_flux.temp_var} {job_flux.e_sum} {job_flux.e_var}')
 
                 # update the minimum energy and configuration
                 for i in range(0, curr_flux.energy_size):

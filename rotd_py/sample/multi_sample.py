@@ -151,6 +151,7 @@ class MultiSample(Sample):
             lf_temp = np.dot(self.div_surface.get_pivot_point(frag_index, face), frag.frag_array['orig_mfo'])
             # return pivot_point_vector in molecule frame * rotation matrix
             lf_temp = frag.mf2lf(lf_temp)
+            #lf_temp = frag.mf2lf(self.div_surface.get_pivot_point(frag_index, face))
             for i in range(0, len(lf_pivot)):
                 lf_pivot[i] = lf_temp[i]
             return [SampTag.SAMP_SUCCESS, lfactor]

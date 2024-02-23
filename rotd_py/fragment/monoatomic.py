@@ -32,8 +32,9 @@ class Monoatomic(Fragment):
 
     def set_labframe_positions(self):
 
-        for i in range(0, 3):
-            self.frag_array['lab_frame_positions'][i] = self.get_labframe_com()[i]
+        for i in range(0, self.get_global_number_of_atoms()):
+            for j in range(0, 3):
+                self.frag_array['lab_frame_positions'][i][j] = self.get_labframe_com()[j]
 
     def get_labframe_imm(self, i, j):
 

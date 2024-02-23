@@ -74,8 +74,8 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
     if kin_en <= 0.:
         return 0
 
-    if iner_mom[0] <= 0.:
-        raise ValueError("mc_stat_weight: inertia moments are tnot positive")
+    if iner_mom[0] < 0.:
+        raise ValueError("mc_stat_weight: inertia moments are not positive")
     if iner_mom[0] > iner_mom[1] or iner_mom[1] > iner_mom[2]:
         raise ValueError("mc_stat_weight: inertia moments are not monotonic")
 

@@ -37,6 +37,7 @@ class MultiFlux:
         self.pot_max = fluxbase.pot_max()
         self.tot_max = fluxbase.tot_max()
         self.selected_faces = selected_faces
+        self.energy_size = sample.energy_size
 
         # initialize each flux to the corespondent facet.
         # convert the energy unit to Hartree
@@ -71,27 +72,30 @@ class MultiFlux:
                 return FluxTag.FLUX_TAG, i
 
         # estimate the error
-        min_val = float('inf')
+        min_val = np.inf
         min_index = 0
 
-        # find the minimum thermal flux
+        # find the minimum thermal flux among all faces and for each corrected flux
         for t_ind in range(0, len(self.temp_grid)):
-            val = 0.
+            val = np.zeros(self.energy_size)
+            # val = 0.
             #for i in range(0, self.num_faces):
             for i in self.selected_faces:  # HACKED !!!
-                val += self.flux_array[i].average(t_ind, 0)
-            if val < min_val:
-                min_val = val
+                val += self.flux_array[i].average(t_ind, self.energy_size-1)
+            if any(val) < min_val:
+                min_val = min(val)
                 min_index = t_ind
+                energy_index = np.where(val==min(val))[0][0]
 
         # total potential variance
         tot_pot_var = 0.0
+        # tot_pot_var = np.zeros(self.sample.energy_size)
         #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
-            tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, 0)
+            tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, energy_index)
 
         # projected number of samplings
-        proj_smp_num = 0.
+        proj_smp_num = 0.0
         if min_val > 1.0e-99:
             proj_smp_num = 10000. * tot_pot_var**2 / min_val**2 / self.tol**2
             if proj_smp_num > self.pot_max:
@@ -102,7 +106,7 @@ class MultiFlux:
             face = 0
             for i in self.selected_faces:  # HACKED !!!
                 smp = proj_smp_num * \
-                    self.flux_array[i].pot_fluctuation(min_index, 0) / tot_pot_var
+                    self.flux_array[i].pot_fluctuation(min_index, energy_index) / tot_pot_var
                 if smp <= 1.:
                     smp = -1
                 else:
@@ -118,7 +122,7 @@ class MultiFlux:
         tot_vol_var = 0.
         #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
-            tot_vol_var += self.flux_array[i].vol_fluctuation(min_index, 0)
+            tot_vol_var += self.flux_array[i].vol_fluctuation(min_index, energy_index)
 
         # projected number of sampling
         if min_val > 1.0e-99:
@@ -134,7 +138,7 @@ class MultiFlux:
         smp_num = np.zeros(self.num_faces)#, dtype=int)
         #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
-            smp = proj_smp_num * self.flux_array[i].vol_fluctuation(min_index, 0)\
+            smp = proj_smp_num * self.flux_array[i].vol_fluctuation(min_index, energy_index)\
                 / tot_vol_var - self.flux_array[i].tot_smp()
             if smp > 0:
                 is_surf_smp = True
@@ -345,14 +349,14 @@ class Flux(FluxBase):
         self.ej_var[index] = np.sqrt(t[index])/self.ej_sum[index] * 100.0
 
     def check_index(self, i, j):
-        """Check the validation of energy index i and temperature index j
+        """Check the validation of temperature index i and energy index j
         i: temperature index
-        j: energy index
+        j: energy (correction) index
         """
 
         if i < 0 or i > len(self.temp_grid):
             raise ValueError("INVALID Temperature")
-        if j < 0 or j >= len(self.energy_grid):
+        if j < 0 or j >= self.energy_size:
             raise ValueError("INVALID Energy")
 
         if not self.is_pot():
@@ -361,14 +365,15 @@ class Flux(FluxBase):
             return True
 
     def average(self, i, j):
-        """Calculate the flux average at energy index i and temperature index j
+        """Calculate the flux average at temperature index i and energy index j
         i: temperature index
-        j: energy index
+        j: energy (correction) index
         """
         if not self.check_index(i, j):
             return 0
 
-        ave = self.temp_sum[i, j]/float(self.acct_smp()) *\
+        # ave = self.temp_sum[i, j]/float(self.acct_smp()) *\
+        ave = self.temp_sum[i]/float(self.acct_smp()) *\
             self.pot_smp()/self.tot_smp()
 
         # This factor: pot_smp/tot_smp is mentioned in this paper
@@ -386,7 +391,6 @@ class Flux(FluxBase):
 
         fluc = np.sqrt(float(self.temp_var[temp_index, j])/float(self.acct_smp()) -
                        float(np.power(temp, 2))) * float(self.pot_smp())/float(self.tot_smp())
-        # can return NaN, need a solution
         return fluc
 
     def vol_fluctuation(self, i, j):
@@ -511,7 +515,6 @@ class Flux(FluxBase):
             as_num += 1
             # calculate the flux.
             for pes in range(0, self.energy_size):  # PES cycle
-                # self.logger.info energy[pes]
                 # Cannonical flux:
                 for t, temp in enumerate(self.temp_grid):  # temperature cycle
                     ratio = -energy[pes]/temp

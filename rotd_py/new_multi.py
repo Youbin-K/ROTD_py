@@ -55,6 +55,8 @@ class Multi(object):
         self.sample = sample
         self.fluxbase = fluxbase
         self.total_flux = OrderedDict()
+        #Ref_flux is an empty flux used to start the new samples
+        self.ref_flux = OrderedDict()
         self.calculator = calculator
         self.work_queue, self.running_jobs, self.finished_jobs = [], [], []
         self.newly_finished_jobs = []
@@ -75,7 +77,7 @@ class Multi(object):
         if selected_faces == None:
             self.selected_faces = [range(surface.get_num_faces()) for surface in self.dividing_surfaces]
         else: #TODO: add a check on the shape of the user input selected faces
-            self.selected_faces = selected_faces
+            self.selected_faces = selected_faces 
         self.saved_samples = []
         self.samples_id = []
         self.converged = []
@@ -83,6 +85,12 @@ class Multi(object):
             surf.surf_id = str(index)
             indivi_sample = copy.deepcopy(sample)
             indivi_sample.set_dividing_surface(surf)
+            #Initialize ref_flux before restart
+            self.ref_flux[surf.surf_id] = MultiFlux(fluxbase=self.fluxbase,
+                                                    num_faces=self.num_faces[index],
+                                                    selected_faces=self.selected_faces[index],
+                                                    sample=indivi_sample,
+                                                    calculator=self.calculator)
             if os.path.isfile(f"{self.sample.name}/rotdPy_restart.db") and from_rslt == False:
                 self.restart(index, surf, indivi_sample)
             else:
@@ -111,6 +119,10 @@ class Multi(object):
                     self.saved_samples[int(surf.surf_id)].append(0)
                     self.samples_id[int(surf.surf_id)].append(1)
         self.ref_flux = copy.deepcopy(self.total_flux)
+
+
+        self.logger.info(f"db_entry: {self.run_index}")
+
         #Submission script template
         self.py_tpl_str = py_tpl_str
         if self.calculator['queue'].casefold() == 'slurm':
@@ -199,7 +211,7 @@ class Multi(object):
                                                                             flux_type=self.fluxbase.flux_type,
                                                                             flux_parameter=self.fluxbase._flux_parameter,
                                                                             sample=copy.deepcopy(indivi_sample),
-                                                                            calculator=self.calculator,
+                                                                            calculator=self.calculator
                                                                             )
                         self.total_flux[surf.surf_id].flux_array[fidx].sample.div_surface.set_face(fidx)
                         self.samples_id[int(surf.surf_id)][fidx] = 1
@@ -289,19 +301,24 @@ class Multi(object):
             for job in reversed(self.newly_finished_jobs):
                 # update flux
                 flux_tag, job_flux, surf_id, face_id, samp_len, samp_id, status = job
-                #ßself.logger.debug(f'{flux_tag}, surf {surf_id}, face {face_id}, sample {samp_id} {status}')
                 if self.converged[int(surf_id)]:
                     self.newly_finished_jobs.remove(job)
                     continue
                 face_index = job_flux.sample.div_surface.get_curr_face()
-                if face_id != face_index:
-                    self.logger.warning(f'Face id not recognised for sample surf{surf_id}_face{face_id}_samp{samp_id}')
+                
                 if face_index not in self.selected_faces[int(surf_id)]:  # HACKED !!!!!
                     self.newly_finished_jobs.remove(job)
                     continue
                 curr_multi_flux = self.total_flux[surf_id]
                 curr_flux = curr_multi_flux.flux_array[face_index]  # multiflux
-
+                if job_flux.acct_smp() != samp_len:
+                    #Job failed, probably because of failed serialization.
+                    flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_id])
+                    self.newly_finished_jobs.remove(job)
+                    self.work_queue.append((FluxTag.FLUX_TAG, flux, surf_id, face_id, flux.samp_len(), 
+                                            samp_id, 'TO DO'))
+                    continue
+                
                 curr_flux.add_acct_smp(job_flux.acct_smp())
                 curr_flux.add_close_smp(job_flux.close_smp())
                 curr_flux.add_face_smp(job_flux.face_smp())
@@ -310,7 +327,7 @@ class Multi(object):
                 curr_flux.temp_var += job_flux.temp_var
                 curr_flux.e_sum += job_flux.e_sum
                 curr_flux.e_var += job_flux.e_var
-                curr_flux.ej_sum += job_flux.ej_sum
+                curr_flux.ej_sum += job_flux.ej_sum 
                 curr_flux.ej_var += job_flux.ej_var
 
                 self.saved_samples[int(surf_id)][face_index] += 1
@@ -331,7 +348,6 @@ class Multi(object):
                 # if continue sample for current flux and for the face index:
                 if flux_tag == FluxTag.FLUX_TAG:
                     face_index = smp_info
-                    #self.logger.info(f'Creating job for face {face_index} with id {self.samples_id[int(surf_id)][face_index]}.')
                     flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                     self.work_queue.append((flux_tag, flux, surf_id, face_index, flux.samp_len(), 
                                             self.samples_id[int(surf_id)][face_index], 'TO DO'))
@@ -341,13 +357,10 @@ class Multi(object):
                     smp_num = smp_info
                     for face_index in range(0, len(smp_num)):
                         if smp_num[face_index] != 0:
-                            #self.logger.info(f'Creating SURFACE job for face {face_index} with id {self.samples_id[int(surf_id)][face_index]}.')
                             flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_index])
                             self.work_queue.append((flux_tag, flux, surf_id, face_index,
                                                     smp_num[face_index], self.samples_id[int(surf_id)][face_index], 'TO DO'))
                             self.samples_id[int(surf_id)][face_index] += 1
-
-                            #self.logger.info(f'{FluxTag.SURF_TAG} flux_idx {self.flux_indexes[int(surf_id)][face_index]} face {face_index} smp_num {smp_num} surface {surf_id}')
 
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
@@ -366,7 +379,7 @@ class Multi(object):
             self.logger.info("Run finished without new samples.")
         self.logger.info("Correct termination of rotdpy.")
 
-    def print_results(self, ignore_surf_id=None, dynamical_correction=1):
+    def print_results(self, ignore_surf_id=None, dynamical_correction=1,faces_weights=None):
         os.chdir(f"{self.workdir}/{self.sample.name}")
                 
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
@@ -391,6 +404,19 @@ class Multi(object):
                 save_min_energy_dist = True
                 scan_ref = correction.scan_ref
                 correction.plot()
+
+        corrections = []
+        has_correction = False
+        for correction in self.sample.corrections.values():
+            corrections.append(correction)
+            if correction.type == "1d":
+                save_min_energy_dist = True
+                scan_ref = correction.scan_ref
+                has_correction = True
+                correction.plot()
+                
+        if not has_correction:
+            scan_ref=[[0,len(self.sample.fragments[0].symbols)]]
 
         for output_energy_index in range(self.sample.energy_size):
             ftype = None
@@ -425,6 +451,8 @@ class Multi(object):
                     for line in f.readlines():
                         if line.startswith('Face'):
                             face = int(line.split()[1])
+                            print(multi_flux['Microcanonical']['0'])
+                            line_index = 0
                             continue
                         elif line.startswith('Minimum energy:'):
                             if float(line.split()[2+output_energy_index]) < min_energies[output_energy_index][-1]:
@@ -436,11 +464,13 @@ class Multi(object):
                             continue
                         elif line.startswith('Canonical:'):
                             ftype = 'Canonical'
+                            line_index = 0
                             #recording = True
                             continue
                         elif line.startswith('Microcanonical:'):
                             #recording = True
                             ftype = 'Microcanonical'
+                            line_index = 0
                             continue
                         elif "Uncorrected" in line:
                             recording = True
@@ -453,15 +483,18 @@ class Multi(object):
                         elif line.startswith('E-J resolved:'):
                             ftype = None
                             recording = False
-                            break
+                            continue
                         if not recording:
                             continue
                         if face == 0:
                             multi_flux[ftype][surf.surf_id].append(0.)
 
                         #Sum-up the flux of all faces
-                        multi_flux[ftype][surf.surf_id][-1] += float(line.split()[output_energy_index+1])*dynamical_correction
-
+                        if faces_weights == None:
+                            multi_flux[ftype][surf.surf_id][line_index] += float(line.split()[output_energy_index+1])*dynamical_correction
+                        else:
+                            multi_flux[ftype][surf.surf_id][line_index] += float(line.split()[output_energy_index+1])*dynamical_correction*faces_weights[int(surf.surf_id)][face]
+                        line_index +=1
                 if save_min_energy_dist:
                     atoms_min = ase.Atoms(symbols, positions=min_geometry)
                     min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
@@ -526,11 +559,11 @@ class Multi(object):
         create_matplotlib_graph(x_lists=sorted_r, data=sorted_e, name=f"{self.sample.name}_min_energy",\
                                 x_label=f"{symbols[scan_ref[0][0]]}{scan_ref[0][0]} to {symbols[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Energy (Kcal/mol)", data_legends=data_legends_e,\
-                                exponential=False, splines=splines, title="Sampled minimum energy")#, comments=comments)
+                                splines=splines, title="Sampled minimum energy")#, comments=comments)
         
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
-                                exponential=True, comments=comments, title="Micro-canonical rate")
+                                xexponential=True, yexponential=True, comments=comments, title="Micro-canonical rate")
 
         os.chdir(f"{self.workdir}")
 
@@ -552,11 +585,17 @@ class Multi(object):
         elements.extend(self.sample.fragments[1].symbols)
 
         corrections = []
+        has_correction = False
         for correction in self.sample.corrections.values():
             corrections.append(correction)
             if correction.type == "1d":
                 save_min_energy_dist = True
                 scan_ref = correction.scan_ref
+                has_correction = True
+                break
+        if not has_correction:
+            scan_ref=[[0,len(self.sample.fragments[0].symbols)]]
+
 
         #Add scans to the plot if available
         for output_energy_index in range(self.sample.energy_size):
@@ -612,7 +651,7 @@ class Multi(object):
         create_matplotlib_graph(x_lists=all_surf_all_samp_d, data=all_surf_all_samp_e, name=f"{self.sample.name}_{name}",\
                                 x_label=f"{elements[scan_ref[0][0]]}{scan_ref[0][0]} to {elements[scan_ref[0][1]]}{scan_ref[0][1]} distance ($\AA$)",
                                 y_label="Energy (Kcal/mol)", data_legends=all_surf_all_samp_legend, user_ymax=ymax,\
-                                exponential=False, splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)
+                                splines=all_surf_all_samp_splines, title="Sampled configurations")#, comments=comments)
 
         os.chdir(f"{self.workdir}")
 
@@ -668,67 +707,65 @@ class Multi(object):
         job = self.check_job_status(job)
         flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = job
         #Avoid submitting jobs for surfaces already converged if jobs are in the work queue
-        if not self.converged[int(surf_id)]:
-            if status == 'NEWLY FINISHED' and job not in self.newly_finished_jobs:
-                self.newly_finished_jobs.append(job)
-                # self.del_db_job(job)
-                return
-            elif status == 'RUNNING':
-                self.running_jobs.append(job)
-                return
-            # elif status == 'FAILED':
-            #     self.del_db_job(job)
-            while len(self.running_jobs) >= self.calculator['max_jobs']:
-                time.sleep(1)
-                self.check_running_jobs()
-
-            #Jobs with status FAILED or TO DO will come here
-
-            # Serialize the job to be picked-up by the sample
-            with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
-                pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
-
-            if 'mem' in self.calculator:
-                if isinstance(self.calculator['mem'], int):
-                    #default unit is MW in calculator
-                    memory_in_MW = self.calculator['mem']
-                else:
-                    self.logger.warning("The memory in the calculator should be an integer in MW. Value set to 500MW")
-                    memory_in_MW = 500
-            else:
-                self.logger.warning("No 'mem' specified in the calculator. Value set to 500MW")
-                memory_in_MW = 500
-
-            memory_in_Mb = np.trunc(memory_in_MW * 8.5).astype(int)
-            # Launch the job
-            os.chdir(f'Surface_{surf_id}/jobs')
-            with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:
-                py_job_fh.write(self.py_tpl_str.format(surf_id=surf_id,
-                                                    face_id=face_id,
-                                                    samp_id=samp_id))
-            with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.sh', 'w') as qu_job_fh:
-                qu_job_fh.write(self.qu_tpl_str.format(surf_id=surf_id,
-                                                    face_id=face_id,
-                                                    samp_id=samp_id,
-                                                    procs=procs,
-                                                    mem=memory_in_Mb))
-            stdout, stderr = Popen(f'{self.sub_cmd} surf{surf_id}_face{face_id}_samp{samp_id}.sh',
-                                shell=True, stdout=PIPE,
-                                stderr=PIPE).communicate()
-            stdout, stderr = (std.decode() for std in (stdout, stderr))
-            try:
-                flux.job_id = stdout.split()[3]
-                err = False
-            except IndexError:
-                err = True
-            if err:
-                raise OSError('SLURM does not seem to be installed. Error '
-                            f'message:\n\n{stderr}')
-            os.chdir(f"{self.workdir}/{self.sample.name}")
-
-            # Relocate the job into the running list
-            job = (flux_tag, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING')
+        if self.converged[int(surf_id)]:
+            return
+        if status == 'NEWLY FINISHED' and job not in self.newly_finished_jobs:
+            self.newly_finished_jobs.append(job)
+            return
+        elif status == 'RUNNING':
             self.running_jobs.append(job)
+            return
+        while len(self.running_jobs) >= self.calculator['max_jobs']:
+            time.sleep(1)
+            self.check_running_jobs()
+
+        #Jobs with status FAILED or TO DO will come here
+
+        # Serialize the job to be picked-up by the sample
+        with open(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.pkl', 'wb') as pkl_file:
+            pickle.dump([flux_tag.value, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING'], pkl_file)
+
+        if 'mem' in self.calculator:
+            if isinstance(self.calculator['mem'], int):
+                #default unit is MW in calculator
+                memory_in_MW = self.calculator['mem']
+            else:
+                self.logger.warning("The memory in the calculator should be an integer in MW. Value set to 500MW")
+                memory_in_MW = 500
+        else:
+            self.logger.warning("No 'mem' specified in the calculator. Value set to 500MW")
+            memory_in_MW = 500
+
+        memory_in_Mb = np.trunc((memory_in_MW / 0.1192092896)*1.1).astype(int)
+        # Launch the job
+        os.chdir(f'Surface_{surf_id}/jobs')
+        with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.py', 'w') as py_job_fh:
+            py_job_fh.write(self.py_tpl_str.format(surf_id=surf_id,
+                                                face_id=face_id,
+                                                samp_id=samp_id))
+        with open(f'surf{surf_id}_face{face_id}_samp{samp_id}.sh', 'w') as qu_job_fh:
+            qu_job_fh.write(self.qu_tpl_str.format(surf_id=surf_id,
+                                                face_id=face_id,
+                                                samp_id=samp_id,
+                                                procs=procs,
+                                                mem=memory_in_Mb))
+        stdout, stderr = Popen(f'{self.sub_cmd} surf{surf_id}_face{face_id}_samp{samp_id}.sh',
+                            shell=True, stdout=PIPE,
+                            stderr=PIPE).communicate()
+        stdout, stderr = (std.decode() for std in (stdout, stderr))
+        try:
+            flux.job_id = stdout.split()[3]
+            err = False
+        except IndexError:
+            err = True
+        if err:
+            raise OSError('SLURM does not seem to be installed. Error '
+                        f'message:\n\n{stderr}')
+        os.chdir(f"{self.workdir}/{self.sample.name}")
+
+        # Relocate the job into the running list
+        job = (flux_tag, flux, surf_id, face_id, samp_len, samp_id, 'RUNNING')
+        self.running_jobs.append(job)
 
 
     def check_running_jobs(self):
@@ -787,7 +824,7 @@ class Multi(object):
             or not (db_flux.energy_grid == flux.energy_grid).all() \
             or not (db_flux.temp_grid == flux.temp_grid).all() \
             or not (db_flux.angular_grid == flux.angular_grid).all():
-            self.logger.warning('The database entries have points calculated with '
+            self.logger.warning('The pickle entries have points calculated with '
                             'different grids. Unable to use them with the current '
                             'calculation.')
             return job

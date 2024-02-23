@@ -118,7 +118,6 @@ class Multi(object):
                 for face_index in range(0, self.total_flux[surf.surf_id].num_faces):
                     self.saved_samples[int(surf.surf_id)].append(0)
                     self.samples_id[int(surf.surf_id)].append(1)
-        self.ref_flux = copy.deepcopy(self.total_flux)
 
 
         self.logger.info(f"db_entry: {self.run_index}")

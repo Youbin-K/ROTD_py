@@ -257,10 +257,9 @@ class Multi(object):
         finished_samples_count = 0
         n_saves = 1
 
-        """Keep submitting jobs as long as there is work to do"""
         num_surfaces = len(self.total_flux)
         for surf in list(compress(self.dividing_surfaces, [not conv for conv in self.converged])):
-            curr_flux = self.total_flux[surf.surf_id]  # multiflux
+            curr_flux = self.ref_flux[surf.surf_id]  # multiflux
             self.logger.info(f'Information about runs')
             self.logger.info(f'Number of surfaces: {num_surfaces}')
             self.logger.info(f'Current surface: {surf.surf_id}')
@@ -277,10 +276,11 @@ class Multi(object):
                                 f'angular momentum (cm-1) {flux.angular_grid}')
                     first_job = False
                 # create the minimum number of flux jobs, i.e., flux.pot_min()
-                if face_index not in self.selected_faces[int(surf.surf_id)]:  # HACKED !!!
+                if face_index not in self.selected_faces[int(surf.surf_id)]:
                     self.logger.info(f'Skipping face {face_index}')
                     continue
-                for j in range(max(flux.pot_min()-self.samples_id[int(surf.surf_id)][face_index]+1, 1)):
+                #
+                for j in range(max(flux.pot_min()-self.samples_id[int(surf.surf_id)][face_index]+1, np.trunc(self.samples_id[int(surf.surf_id)][face_index]*0.1).astype(int))):
                     #self.logger.info(f'Creating job {j} for surface {surf.surf_id} face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
                     self.work_queue.append((FluxTag.FLUX_TAG, flux,
                                             surf.surf_id, face_index, flux.samp_len(), 
@@ -288,6 +288,7 @@ class Multi(object):
                     self.samples_id[int(surf.surf_id)][face_index] += 1
                     initial_submission += 1
 
+        """Keep submitting jobs as long as there is work to do"""
         while not all(self.converged):
             #Stop submitting when all work_queue has been submitted
             if len(self.work_queue) > jobs_submitted:

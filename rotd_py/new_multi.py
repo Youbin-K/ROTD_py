@@ -101,7 +101,7 @@ class Multi(object):
                             rows = cursor.execute(sql_cmd, (surf.surf_id,)).fetchall()
                         if rows:
                             try:
-                                surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[-1]
+                                _1, _2, _3, _4, run_index = rows[-1]
                                 self.run_index = run_index +1
                             except:
                                 pass
@@ -169,7 +169,7 @@ class Multi(object):
             try:
                 surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[self.db_entry]
                 if index == 0:
-                    self.run_index += run_index
+                    self.run_index = run_index +1
             except:
                 surf_id, pkl_surf_flux, sample_list, pkl_old_flux_base, run_index = rows[-1]
             #Actualise the run number to save in the db
@@ -298,6 +298,9 @@ class Multi(object):
                 initial_submission -= 1
             if not initial_submission and len(self.work_queue[jobs_submitted:]) < self.calculator['max_jobs']/2:
                 self.check_running_jobs()
+            if jobs_submitted >= 3000:
+                self.work_queue = self.work_queue[2999:]
+                jobs_submitted = 0
             for job in reversed(self.newly_finished_jobs):
                 # update flux
                 flux_tag, job_flux, surf_id, face_id, samp_len, samp_id, status = job
@@ -451,7 +454,6 @@ class Multi(object):
                     for line in f.readlines():
                         if line.startswith('Face'):
                             face = int(line.split()[1])
-                            print(multi_flux['Microcanonical']['0'])
                             line_index = 0
                             continue
                         elif line.startswith('Minimum energy:'):

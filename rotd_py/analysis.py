@@ -108,6 +108,16 @@ def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb",
     if not isinstance(data, list):
         return 
     
+    if '/' in name:
+        for index, character in enumerate(name):
+            if character == '/':
+                tmp = list(name)
+                tmp[index] = '_'
+                tmp_lst = ''
+                for char in tmp:
+                    tmp_lst += char
+                name = tmp_lst
+
     content = """import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import make_interp_spline\n\n"""
@@ -115,11 +125,15 @@ from scipy.interpolate import make_interp_spline\n\n"""
     for comment in comments:
         content += f"# {comment}\n"
     
+    content += "xmin = np.inf\n"
+    content += "xmax = -np.inf\n"
     content += "ymin = np.inf\n"
     content += "ymax = -np.inf\n"
 
     for index, x in enumerate(x_lists):
         content += f"x{index} = {x}\n"
+        content += f"xmin = min(xmin, min(x{index}))\n"
+        content += f"xmax = max(xmax, max(x{index}))\n"
         content += f"x{index}_spln = np.arange(min(x{index}), max(x{index}), 0.01)\n\n"
 
     for index, y in enumerate(data):
@@ -157,6 +171,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
 
     content += f"""
 ax.legend(loc='lower right')
+ax.set_xlim([xmin, xmax])
 ax.set_ylim([ymin, ymax])
 ax.set_xlabel(r'{x_label}')
 ax.set_ylabel(r'{y_label}')

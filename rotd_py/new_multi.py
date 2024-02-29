@@ -182,20 +182,26 @@ class Multi(object):
             self.total_flux[surf.surf_id] = pickle.loads(pkl_surf_flux)
             self.logger.info(f"RESTART: Found {len(self.total_flux[surf.surf_id].flux_array)} fluxes/facets")
             old_flux_base = pickle.loads(pkl_old_flux_base)
+            tot_pot = 0
             for face_index, face_flux in enumerate(self.total_flux[surf.surf_id].flux_array):
                 self.logger.info(f"RESTART: Flux {face_index} samples:")
+                self.logger.info("\n")
                 self.logger.info(f"""self._acct_num = {face_flux._acct_num}
     self._fail_num = {face_flux._fail_num}
     self._fake_num = {face_flux._fake_num}
     self._close_num = {face_flux._close_num}""")
+                if face_flux._acct_num >= self.fluxbase._flux_parameter['pot_smp_max']:
+                    self.total_flux[surf.surf_id].converged = True
                 #self.flux_indexes[int(surf.surf_id)][face_index] = face_flux.acct_smp() + 1
             #Surface is converged if it has an output, and the same or lower convergence threshold
             if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
+            self.total_flux[surf.surf_id].converged and \
             old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
             old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
             old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min'] and \
-            old_flux_base._flux_parameter['tot_smp_max'] >= self.fluxbase._flux_parameter['tot_smp_max']:
+            old_flux_base._flux_parameter['tot_smp_max'] >= self.fluxbase._flux_parameter['tot_smp_max'] :
                 self.converged.append(True)
+                self.total_flux[str(surf_id)].save_file(surf_id)
                 self.logger.info(f"RESTART: Surface {surf.surf_id} successfully converged. No calculations needed.")
             else:
                 self.converged.append(False)
@@ -203,6 +209,7 @@ class Multi(object):
                 for fidx, face_num_samples in enumerate(self.samples_id[-1]):
                     #If a face has no sample, reinitialize the surface
                     if face_num_samples == 1:
+                        self.total_flux[surf.surf_id].converged = False
                         self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
                         self.total_flux[surf.surf_id].flux_array[fidx] = Flux(temp_grid=self.fluxbase.temp_grid * rotd_math.Kelv,
                                                                             energy_grid=self.fluxbase.energy_grid * rotd_math.Kelv,
@@ -257,8 +264,10 @@ class Multi(object):
         finished_samples_count = 0
         n_saves = 1
 
+        surfaces_to_compute = list(compress(self.dividing_surfaces, [not conv for conv in self.converged]))
+
         num_surfaces = len(self.total_flux)
-        for surf in list(compress(self.dividing_surfaces, [not conv for conv in self.converged])):
+        for surf in surfaces_to_compute:
             curr_flux = self.ref_flux[surf.surf_id]  # multiflux
             self.logger.info(f'Information about runs')
             self.logger.info(f'Number of surfaces: {num_surfaces}')
@@ -280,7 +289,11 @@ class Multi(object):
                     self.logger.info(f'Skipping face {face_index}')
                     continue
                 #
-                for j in range(max(flux.pot_min()-self.samples_id[int(surf.surf_id)][face_index]+1, np.trunc(self.samples_id[int(surf.surf_id)][face_index]*0.1).astype(int))):
+                if flux.pot_min()-self.samples_id[int(surf.surf_id)][face_index]+1 <= 0:
+                    max_new_jobs = np.trunc(self.calculator['max_jobs']/len(surfaces_to_compute)).astype(int)
+                else:
+                    max_new_jobs = flux.pot_min()-self.samples_id[int(surf.surf_id)][face_index]
+                for j in range(max_new_jobs):
                     #self.logger.info(f'Creating job {j} for surface {surf.surf_id} face {face_index} with id {self.flux_indexes[int(surf.surf_id)][face_index]}.')
                     self.work_queue.append((FluxTag.FLUX_TAG, flux,
                                             surf.surf_id, face_index, flux.samp_len(), 
@@ -347,6 +360,8 @@ class Multi(object):
                         curr_flux.min_geometry[i] = job_flux.min_geometry[i].copy()
                 # check the current flux converged or not
                 flux_tag, smp_info = curr_multi_flux.check_state()
+                # self.dividing_surfaces[int(surf_id)].pot_var = curr_multi_flux.sample.div_surface.pot_var
+                # self.dividing_surfaces[int(surf_id)].vol_var = curr_multi_flux.sample.div_surface.vol_var
                 self.logger.debug(f'tag {flux_tag} info {smp_info}')
                 # if continue sample for current flux and for the face index:
                 if flux_tag == FluxTag.FLUX_TAG:
@@ -368,6 +383,8 @@ class Multi(object):
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.logger.info(f'{FluxTag.STOP_TAG} was assigned to surface {surf_id}')
                     self.total_flux[surf_id].save_file(surf_id)
+                    self.total_flux[surf_id].converged = True
+                    self.cancel_surface_jobs(surf_id)
                     self.converged[int(surf_id)] = True #TODO: add full converged check
                     self.save_run_in_db()
                     self.logger.info(f'Calculations are done for surface {surf_id}')
@@ -517,8 +534,6 @@ class Multi(object):
                         min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
                         flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
-
-
             #Prepare micro-canonical plot
             mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
             temp_list.append(self.fluxbase.temp_grid.tolist())
@@ -594,7 +609,7 @@ class Multi(object):
                 save_min_energy_dist = True
                 scan_ref = correction.scan_ref
                 has_correction = True
-                break
+                # break
         if not has_correction:
             scan_ref=[[0,len(self.sample.fragments[0].symbols)]]
 
@@ -661,6 +676,8 @@ class Multi(object):
         self.logger.info("SAVE: The run has been saved in the database.")
         self.logger.info("SAVE: Surfaces converged:")
         self.logger.info(f"{self.converged}")
+        # self.logger.info("SAVE: Surfaces potential incertitude:")
+        # self.logger.info(['{:.5f}'.format(np.sqrt(surf.pot_var)) for surf in self.dividing_surfaces])
         self.logger.info("SAVE: Job indexes:")
         self.logger.info(f"{self.saved_samples}")
         #create db if it doesn't exist
@@ -694,6 +711,22 @@ class Multi(object):
                         'run_index': self.run_index
                         })
 
+    def cancel_surface_jobs(self, converged_surf_id):
+        """Remove all running jobs from the queue once a surface is converged"""
+        to_remove = []
+        for job in self.running_jobs:
+            flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = job
+            if surf_id == converged_surf_id:
+                cancel_command = self.cancel_cmd.format(job_id=flux.job_id)
+                stdout, stderr = Popen(cancel_command,
+                            shell=True, stdout=PIPE,
+                            stderr=PIPE).communicate()
+                stdout, stderr = (std.decode() for std in (stdout, stderr))
+                to_remove.append(job)
+        for job in to_remove:
+            self.running_jobs.remove(job)
+
+
     def submit_work(self, job, procs=1):
         """
 
@@ -705,6 +738,10 @@ class Multi(object):
         -------
 
         """
+
+        #Delete jobs from previous run
+        if os.path.isfile(f'Surface_{job[2]}/jobs/surf{job[2]}_face{job[3]}_samp{job[5]}.pkl'):
+            os.remove(f'Surface_{job[2]}/jobs/surf{job[2]}_face{job[3]}_samp{job[5]}.pkl')
         # Initial checks of job db/queue status and maximum jobs limit.
         job = self.check_job_status(job)
         flux_tag, flux, surf_id, face_id, samp_len, samp_id, status = job
@@ -828,7 +865,7 @@ class Multi(object):
             or not (db_flux.angular_grid == flux.angular_grid).all():
             self.logger.warning('The pickle entries have points calculated with '
                             'different grids. Unable to use them with the current '
-                            'calculation.')
+                            'calculation.')   
             return job
         # Check if the job is actually running.
         if db_status.upper() == 'RUNNING':
@@ -865,6 +902,16 @@ class Multi(object):
                 os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.sh')
             except FileNotFoundError:
                 self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.sh')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py'):
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.py')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.py')
+        if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.stdout'):
+            try:
+                os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.stdout')
+            except FileNotFoundError:
+                self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.stdout')
         if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.err'):
             #Delete error file if empty
             if os.stat(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.err').st_size == 0:
@@ -896,6 +943,11 @@ class Multi(object):
                         os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.com')
                     except FileNotFoundError:
                         self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.com')
+                if os.path.isfile(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.log'):
+                    try:
+                        os.remove(f'Surface_{surf_id}/jobs/surf{surf_id}_face{face_id}_samp{samp_id}.log')
+                    except FileNotFoundError:
+                        self.logger.debug('Could not delete surf{surf_id}_face{face_id}_samp{samp_id}.log')
             case _ :
                 pass
         

@@ -63,6 +63,8 @@ class Surface(object):
         for i in range(0, len(self.num_pivot_points)):
             self.num_faces *= self.num_pivot_points[i]
         self._curr_face = 0
+        self.pot_var = np.inf
+        self.vol_var = np.inf
 
     def get_num_faces(self):
         """Return the total number of facets for this system. """

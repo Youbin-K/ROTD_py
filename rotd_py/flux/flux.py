@@ -38,6 +38,9 @@ class MultiFlux:
         self.tot_max = fluxbase.tot_max()
         self.selected_faces = selected_faces
         self.energy_size = sample.energy_size
+        self.sample = copy.deepcopy(sample)
+
+        self.converged = False
 
         # initialize each flux to the corespondent facet.
         # convert the energy unit to Hartree
@@ -93,6 +96,7 @@ class MultiFlux:
         #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
             tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, energy_index)
+        # self.sample.div_surface.pot_var = tot_pot_var
 
         # projected number of samplings
         proj_smp_num = 0.0
@@ -123,6 +127,7 @@ class MultiFlux:
         #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
             tot_vol_var += self.flux_array[i].vol_fluctuation(min_index, energy_index)
+        # self.sample.div_surface.vol_var = tot_vol_var
 
         # projected number of sampling
         if min_val > 1.0e-99:
@@ -475,18 +480,18 @@ class Flux(FluxBase):
             tag = self.sample.generate_configuration()
 
             if tag == 0:
-                self.logger.info('Tag0')
+                # self.logger.info('Tag0')
                 break
             elif tag == SampTag.SAMP_ATOMS_CLOSE:
                 ds_num += 1
-                self.logger.info('Close atoms sample')
+                # self.logger.info('Close atoms sample')
                 continue
             elif tag == SampTag.SAMP_FACE_OUT:
                 cs_num += 1
-                self.logger.info('Out of face sample')
+                # self.logger.info('Out of face sample')
                 continue
             elif tag == SampTag.SAMP_SUCCESS:
-                self.logger.info('Good sample')
+                # self.logger.info('Good sample')
                 pass
             else:
                 self.logger.error("rand_pos status unknow, EXITING\n")
@@ -494,7 +499,6 @@ class Flux(FluxBase):
 
             # now check energy:
             energy = self.sample.get_energies(self.calculator, face_id=face_id, flux_id=flux_id)
-            self.logger.info("flux: %f" % (energy[0]))
             if energy is None:
                 fs_num += 1
                 continue

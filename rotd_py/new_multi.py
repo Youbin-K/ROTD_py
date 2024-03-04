@@ -185,10 +185,10 @@ class Multi(object):
             tot_pot = 0
             for face_index, face_flux in enumerate(self.total_flux[surf.surf_id].flux_array):
                 self.logger.info(f"RESTART: Flux {face_index} samples:")
-                self.logger.info("\n")
-                self.logger.info(f"""self._acct_num = {face_flux._acct_num}
-    self._fail_num = {face_flux._fail_num}
-    self._fake_num = {face_flux._fake_num}
+                self.logger.info(f"""
+     self._acct_num = {face_flux._acct_num}
+     self._fail_num = {face_flux._fail_num}
+     self._fake_num = {face_flux._fake_num}
     self._close_num = {face_flux._close_num}""")
                 if face_flux._acct_num >= self.fluxbase._flux_parameter['pot_smp_max']:
                     self.total_flux[surf.surf_id].converged = True
@@ -327,6 +327,8 @@ class Multi(object):
                     continue
                 curr_multi_flux = self.total_flux[surf_id]
                 curr_flux = curr_multi_flux.flux_array[face_index]  # multiflux
+
+                #Check if the flux is valid
                 if job_flux.acct_smp() != samp_len:
                     #Job failed, probably because of failed serialization.
                     flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_id])
@@ -406,6 +408,7 @@ class Multi(object):
             ignore_surf_id = []
 
         mc_rate = []
+        mc_rate_contrib = []
         min_energies = []
         min_energies_dist = []
         sorted_r = []
@@ -416,14 +419,6 @@ class Multi(object):
         data_legends_r = []
         comments = []
         save_min_energy_dist = False
-
-        corrections = []
-        for correction in self.sample.corrections.values():
-            corrections.append(correction)
-            if correction.type == "1d":
-                save_min_energy_dist = True
-                scan_ref = correction.scan_ref
-                correction.plot()
 
         corrections = []
         has_correction = False
@@ -442,6 +437,7 @@ class Multi(object):
             ftype = None
 
             mc_rate.append([])
+            mc_rate_contrib.append([])
             min_energies.append([])
             min_energies_dist.append([])
             multi_flux = {'Canonical': {},
@@ -497,7 +493,9 @@ class Multi(object):
                         elif ftype == 'geometry':
                             if recording:
                                 symbols.append(line.split()[0])
-                                min_geometry.append([float(line.split()[1+4*output_energy_index]), float(line.split()[2+4*output_energy_index]), float(line.split()[3+4*output_energy_index])])
+                                min_geometry.append([float(line.split()[1+4*output_energy_index]),\
+                                                    float(line.split()[2+4*output_energy_index]),\
+                                                    float(line.split()[3+4*output_energy_index])])
                             continue
                         elif line.startswith('E-J resolved:'):
                             ftype = None
@@ -519,7 +517,7 @@ class Multi(object):
                     min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
                 #Save surface flux if minimum for a given temperature
                 for temp_index in range(len(self.fluxbase.temp_grid)):
-                    #Initialize flux_origin, which saves from which surface the flux is coming from
+                    #Initialize flux_origin, which saves from which surface the min flux is coming from
                     if len(flux_origin['Canonical']) < len(self.fluxbase.temp_grid):
                         flux_origin['Canonical'].append(surf.surf_id,)
                     if multi_flux['Canonical'][surf.surf_id][temp_index] < min_flux['Canonical'][temp_index]:
@@ -535,9 +533,22 @@ class Multi(object):
                         flux_origin['Microcanonical'][energy_index] = surf.surf_id
 
             #Prepare micro-canonical plot
-            mc_rate[output_energy_index] = integrate_micro(np.array(min_flux['Microcanonical']), self.fluxbase.energy_grid, self.fluxbase.temp_grid, self.sample.get_dof()) / 6.0221e12
+            mc_rate[output_energy_index], mc_rate_contrib[output_energy_index] = \
+                integrate_micro(np.array(min_flux['Microcanonical']),\
+                                self.fluxbase.energy_grid,\
+                                self.fluxbase.temp_grid,\
+                                self.sample.get_dof(),\
+                                return_contrib=True)
+            mc_rate[output_energy_index] /= 6.0221e12
+            rate_contrib_from_e = [int(flux_origin['Microcanonical'][int(index)]) for index in mc_rate_contrib[output_energy_index]]
             temp_list.append(self.fluxbase.temp_grid.tolist())
-            comments.append(f"Sources: {flux_origin['Microcanonical']}")
+            comments.append(f"Sources: {rate_contrib_from_e}")
+
+            create_matplotlib_graph(x_lists=[list(self.fluxbase.temp_grid)], data=[rate_contrib_from_e], name=f"{self.sample.name}_mc_dividing_surfaces_{output_energy_index}",\
+                                    x_label=f"Temperature (Kelvin)",
+                                    y_label="Surface index", \
+                                    title="TS dividing surface")
+            
             if output_energy_index == 0:
                 data_legends_r.append("Uncorrected Microcanonical rate")
             else:
@@ -545,9 +556,9 @@ class Multi(object):
 
             os.chdir(f"{self.workdir}")
             if output_energy_index == 0:
-                self.plot_all_samples(only_surf_id=flux_origin['Microcanonical'], name=f'selected_samples_{output_energy_index}', ymax=35)
+                self.plot_all_samples(only_surf_id=rate_contrib_from_e, name=f'selected_samples_{output_energy_index}', ymax=35)
             else:
-                self.plot_all_samples(only_surf_id=flux_origin['Microcanonical'], name=f'selected_samples_{output_energy_index}', ymax=35, correc=corrections[output_energy_index-1])
+                self.plot_all_samples(only_surf_id=rate_contrib_from_e, name=f'selected_samples_{output_energy_index}', ymax=35, correc=corrections[output_energy_index-1])
             os.chdir(f"{self.workdir}/{self.sample.name}")
 
             #Prepare min energy plot
@@ -628,9 +639,9 @@ class Multi(object):
                     all_surf_all_samp_legend.append(f"trust_{self.sample.name}")
 
         for surf in self.dividing_surfaces:
-            if surf.surf_id in ignore_surf_id:
+            if int(surf.surf_id) in ignore_surf_id:
                 continue
-            if surf.surf_id not in only_surf_id:
+            if int(surf.surf_id) not in only_surf_id:
                 continue
             all_samp_e = []
             all_samp_d = []

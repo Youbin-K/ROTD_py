@@ -45,7 +45,7 @@ def get_ej_flux(file_name, e_size, j_size, pes_index):
     return ej_flux
 
 
-def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
+def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contrib=False):
     """This function integrate the e_flux to thermal flux based on the
     e_flux and temperature_grid.
 
@@ -62,12 +62,13 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
 
     if len(energy_grid) != len(e_flux):
         raise ValueError("mc_flux and energy dimension INVALID")
-    energy_grid = energy_grid * rotd_math.Kelv
+    energy_grid = energy_grid * rotd_math.Kelv # Convert from K to Hartree
     temperature_grid = temperature_grid * rotd_math.Kelv
     temper_fac = np.power(temperature_grid, dof_num//2)
     if dof_num % 2:
         temper_fac *= np.sqrt(temperature_grid)
     mc_rate = np.zeros(len(temperature_grid))
+    mc_rate_contrib = np.zeros(len(temperature_grid))
 
     for t, temperature in enumerate(temperature_grid):
 
@@ -80,10 +81,18 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num):
         # overlapping parabolas fitting, thus here, we use simpson's integral in
         # scipy
         mc_rate[t] = simps(enint, energy_grid)
+        mc_rate_contrib[t] = int(list(enint).index(max(enint)))
+        # if temperature/rotd_math.Kelv >290 and  temperature/rotd_math.Kelv < 300:
+        #     for g, e in zip(energy_grid/rotd_math.Kelv, enint):
+        #         print(g, e)
+
     mc_rate *= 4. * np.pi / temper_fac
     mc_rate *= rotd_math.conv_fac
 
-    return mc_rate
+    if return_contrib:
+        return mc_rate, mc_rate_contrib
+    else:
+        return mc_rate
 
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
                             data_legends=["y0"], comments=[""], xexponential=False, yexponential=False, splines=None, title=None,\

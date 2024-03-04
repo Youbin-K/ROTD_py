@@ -92,11 +92,8 @@ class MultiFlux:
 
         # total potential variance
         tot_pot_var = 0.0
-        # tot_pot_var = np.zeros(self.sample.energy_size)
-        #for i in range(0, self.num_faces):
         for i in self.selected_faces:  # HACKED !!!
             tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, energy_index)
-        # self.sample.div_surface.pot_var = tot_pot_var
 
         # projected number of samplings
         proj_smp_num = 0.0
@@ -466,7 +463,6 @@ class Flux(FluxBase):
                 raise RuntimeError("ALL potentail failed")
 
             if vol_num > self.get_vol_num_max() and not self.is_pot():
-                self.logger.info('Volume limit')
                 break
 
             """
@@ -480,18 +476,14 @@ class Flux(FluxBase):
             tag = self.sample.generate_configuration()
 
             if tag == 0:
-                # self.logger.info('Tag0')
                 break
             elif tag == SampTag.SAMP_ATOMS_CLOSE:
                 ds_num += 1
-                # self.logger.info('Close atoms sample')
                 continue
             elif tag == SampTag.SAMP_FACE_OUT:
                 cs_num += 1
-                # self.logger.info('Out of face sample')
                 continue
             elif tag == SampTag.SAMP_SUCCESS:
-                # self.logger.info('Good sample')
                 pass
             else:
                 self.logger.error("rand_pos status unknow, EXITING\n")

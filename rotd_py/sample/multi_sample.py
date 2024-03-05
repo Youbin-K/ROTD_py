@@ -105,12 +105,17 @@ class MultiSample(Sample):
             elif frag.molecule_type == MolType.NONLINEAR:
                 mf_com = frag.lf2mf(com_vec)
                 if index == 0:
-                    rc_vec = np.append(rc_vec, np.cross(self.div_surface.get_pivot_point(index, curr_face),
-                                                        mf_com)/np.sqrt(frag.get_inertia_moments()))
-                else:
-                    rc_vec = np.append(rc_vec, np.cross(mf_com,
-                                                        self.div_surface.get_pivot_point(index, curr_face)) /
+                    rc_vec = np.append(rc_vec,\
+                                       np.cross(self.div_surface.get_pivot_point(index,\
+                                                                                 curr_face),\
+                                                mf_com)/\
                                        np.sqrt(frag.get_inertia_moments()))
+                else:
+                    rc_vec = np.append(rc_vec,\
+                                       np.cross(mf_com,
+                                                self.div_surface.get_pivot_point(index,\
+                                                                                 curr_face))\
+                                               /np.sqrt(frag.get_inertia_moments()))
 
         self.weight = lfactor * self.div_surface.get_dist(curr_face) ** 2 * \
                       rotd_math.normalize(rc_vec)

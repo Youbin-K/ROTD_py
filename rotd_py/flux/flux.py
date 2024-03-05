@@ -86,7 +86,7 @@ class MultiFlux:
             for i in self.selected_faces:  # HACKED !!!
                 val += self.flux_array[i].average(t_ind, self.energy_size-1)
             if any(val) < min_val:
-                min_val = min(val)
+                min_val = np.min(val)
                 min_index = t_ind
                 energy_index = np.where(val==min(val))[0][0]
 
@@ -200,9 +200,9 @@ class MultiFlux:
             curr_flux.normalize()
             # the Canonical:
             f.write("Canonical: \n")
-            f.write("%-16s %15s" % ("Temperature (K)", "Uncorrected"))
+            f.write("%-16s %14s" % ("Temperature (K)", "Uncorrected"))
             for correction_name in curr_flux.sample.corrections.keys():
-                f.write(" %15s" % (correction_name))
+                f.write(" %14s" % (correction_name))
             f.write("\n")
             for this_temp in range(0, len(curr_flux.temp_grid)):
                 line = "%-16.3f  " % (curr_flux.temp_grid[this_temp]/rotd_math.Kelv)
@@ -211,9 +211,9 @@ class MultiFlux:
                 f.write(line + '\n')
             # the Micro-canonical:
             f.write("Microcanonical: \n")
-            f.write("%-16s %15s" % ("Energy (cm-1)", "Uncorrected"))
+            f.write("%-16s %14s" % ("Energy (K)", "Uncorrected"))
             for correction_name in curr_flux.sample.corrections.keys():
-                f.write(" %15s" % (correction_name))
+                f.write(" %14s" % (correction_name))
             f.write("\n")
             for this_energy in range(0, len(curr_flux.energy_grid)):
                 line = "%-16.3f" % (curr_flux.energy_grid[this_energy]/rotd_math.Kelv)
@@ -222,9 +222,13 @@ class MultiFlux:
                 f.write(line + '\n')
 
             f.write("E-J resolved: \n")
-            for j in range(0, len(curr_flux.angular_grid)):
-                for i in range(0, len(curr_flux.energy_grid)):
-                    line = " ".join(format(x, ".3e") for x in curr_flux.ej_sum[i, j, :])
+            f.write("%-16s %14s" % ("e-grid per J", "Uncorrected"))
+            for correction_name in curr_flux.sample.corrections.keys():
+                f.write(" %14s" % (correction_name))
+            for this_energy in range(0, len(curr_flux.energy_grid)):
+                for this_J in range(0, len(curr_flux.angular_grid)):
+                    for x in curr_flux.ej_sum[this_energy, this_J]:
+                        line += " %14.3e" % (x)
                     f.write(line + '\n')
 
         f.close()

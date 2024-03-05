@@ -94,6 +94,40 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contr
     else:
         return mc_rate
 
+def integrate_ej(ej_flux, ej_grid, energy_grid, return_contrib=False):
+    """This function integrate the ej_flux to thermal e_flux based on the
+    e_flux and temperature_grid.
+
+    Parameters
+    ----------
+    ej_flux : 2_D numpy array of dimension energy_grid*j_grid
+    energy_grid : with unit Kelv, same dimension with e_flux
+    j_grid : with no unit, same dimension with ej_flux axis=1
+    dof_num : the degree of freedom of the whole system
+
+    Returns: e_flux
+    -------
+    """
+    if (len(energy_grid),len(ej_grid)) != np.shape(ej_flux):
+        raise ValueError("ej_flux and J*energy dimensions INVALID")
+    e_flux = np.zeros(len(energy_grid))
+    e_flux_contrib = np.zeros(len(energy_grid))
+    # nfac = sqrt(2.*np.pi)
+    energy_grid = energy_grid * rotd_math.Kelv # Convert from K to Hartree
+    # ej_grid = ej_grid * rotd_math.Kelv # Convert from K to Hartree
+    for energy_index, energy in enumerate(energy_grid):
+        j_intgrl = np.zeros(len(ej_grid))
+        for j in range(0, len(ej_grid)):
+            j_intgrl[j] = ej_grid[j]**2 * ej_flux[energy_index, j]
+        #Integration
+        e_flux[energy_index] = simps(j_intgrl, ej_grid)
+        e_flux_contrib[energy_index] = int(list(j_intgrl).index(max(j_intgrl)))
+    
+    if return_contrib:
+        return e_flux, e_flux_contrib
+    else:
+        return e_flux
+
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
                             data_legends=["y0"], comments=[""], xexponential=False, yexponential=False, splines=None, title=None,\
                             user_ymax=None, user_ymin=None):

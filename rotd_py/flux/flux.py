@@ -197,37 +197,39 @@ class MultiFlux:
                 f.write("\n")
 
             # now normalize the calculated results
-            curr_flux.normalize()
+            normalized_face_flux = curr_flux.normalize()
             # the Canonical:
             f.write("Canonical: \n")
             f.write("%-16s %14s" % ("Temperature (K)", "Uncorrected"))
-            for correction_name in curr_flux.sample.corrections.keys():
+            for correction_name in normalized_face_flux.sample.corrections.keys():
                 f.write(" %14s" % (correction_name))
             f.write("\n")
-            for this_temp in range(0, len(curr_flux.temp_grid)):
-                line = "%-16.3f  " % (curr_flux.temp_grid[this_temp]/rotd_math.Kelv)
-                for x in curr_flux.temp_sum[this_temp]:
+            for this_temp in range(0, len(normalized_face_flux.temp_grid)):
+                line = "%-16.3f  " % (normalized_face_flux.temp_grid[this_temp]/rotd_math.Kelv)
+                for x in normalized_face_flux.temp_sum[this_temp]:
                     line += " %14.3e" % (x)
                 f.write(line + '\n')
             # the Micro-canonical:
             f.write("Microcanonical: \n")
             f.write("%-16s %14s" % ("Energy (K)", "Uncorrected"))
-            for correction_name in curr_flux.sample.corrections.keys():
+            for correction_name in normalized_face_flux.sample.corrections.keys():
                 f.write(" %14s" % (correction_name))
             f.write("\n")
-            for this_energy in range(0, len(curr_flux.energy_grid)):
-                line = "%-16.3f" % (curr_flux.energy_grid[this_energy]/rotd_math.Kelv)
-                for x in curr_flux.e_sum[this_energy]:
+            for this_energy in range(0, len(normalized_face_flux.energy_grid)):
+                line = "%-16.3f" % (normalized_face_flux.energy_grid[this_energy]/rotd_math.Kelv)
+                for x in normalized_face_flux.e_sum[this_energy]:
                     line += " %14.3e" % (x)
                 f.write(line + '\n')
 
             f.write("E-J resolved: \n")
-            f.write("%-16s %14s" % ("e-grid per J", "Uncorrected"))
-            for correction_name in curr_flux.sample.corrections.keys():
+            f.write("%-16s %14s" % ("[J, E]", "Uncorrected"))
+            for correction_name in normalized_face_flux.sample.corrections.keys():
                 f.write(" %14s" % (correction_name))
-            for this_energy in range(0, len(curr_flux.energy_grid)):
-                for this_J in range(0, len(curr_flux.angular_grid)):
-                    for x in curr_flux.ej_sum[this_energy, this_J]:
+            f.write("\n")
+            for this_energy in range(0, len(normalized_face_flux.energy_grid)):
+                for this_J in range(0, len(normalized_face_flux.angular_grid)):
+                    line = "%-7.3e %7.3e" % (normalized_face_flux.angular_grid[this_J], normalized_face_flux.energy_grid[this_energy]/rotd_math.Kelv)
+                    for x in normalized_face_flux.ej_sum[this_energy, this_J]:
                         line += " %14.3e" % (x)
                     f.write(line + '\n')
 
@@ -326,33 +328,36 @@ class Flux(FluxBase):
         if not self.acct_smp():
             return
         # TODO: figure out why
+        normalized_flux = copy.deepcopy(self)
         samp_factor = float(self.pot_smp())/self.tot_smp()/self.acct_smp()
 
         fluct_factor = 1.0/self.acct_smp() + 1.0/self.tot_smp() - 1.0/self.pot_smp()
 
         # dealing with the thermal flux in total
-        self.temp_sum *= samp_factor
-        self.temp_var[np.where(self.temp_sum < min_flux)] = 0.0
-        t = self.temp_var * samp_factor**2 - self.temp_sum**2 * fluct_factor
-        self.temp_var[np.where(t <= 0.)] = 0.0
+        normalized_flux.temp_sum *= samp_factor
+        normalized_flux.temp_var[np.where(normalized_flux.temp_sum < min_flux)] = 0.0
+        t = normalized_flux.temp_var * samp_factor**2 - normalized_flux.temp_sum**2 * fluct_factor
+        normalized_flux.temp_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.temp_var[index] = np.sqrt(t[index])/self.temp_sum[index] * 100.0
+        normalized_flux.temp_var[index] = np.sqrt(t[index])/normalized_flux.temp_sum[index] * 100.0
 
         # microcanonical
-        self.e_sum *= samp_factor
-        self.e_var[np.where(self.e_sum < min_flux)] = 0.0
-        t = self.e_var * samp_factor**2 - self.e_sum**2 * fluct_factor
-        self.e_var[np.where(t <= 0.)] = 0.0
+        normalized_flux.e_sum *= samp_factor
+        normalized_flux.e_var[np.where(normalized_flux.e_sum < min_flux)] = 0.0
+        t = normalized_flux.e_var * samp_factor**2 - normalized_flux.e_sum**2 * fluct_factor
+        normalized_flux.e_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.e_var[index] = np.sqrt(t[index])/self.e_sum[index] * 100.0
+        normalized_flux.e_var[index] = np.sqrt(t[index])/normalized_flux.e_sum[index] * 100.0
 
         # e-j resolved
-        self.ej_sum *= samp_factor
-        self.ej_var[np.where(self.ej_sum < min_flux)] = 0.0
-        t = self.ej_var * samp_factor**2 - self.ej_sum**2 * fluct_factor
-        self.ej_var[np.where(t <= 0.)] = 0.0
+        normalized_flux.ej_sum *= samp_factor
+        normalized_flux.ej_var[np.where(normalized_flux.ej_sum < min_flux)] = 0.0
+        t = normalized_flux.ej_var * samp_factor**2 - normalized_flux.ej_sum**2 * fluct_factor
+        normalized_flux.ej_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.ej_var[index] = np.sqrt(t[index])/self.ej_sum[index] * 100.0
+        normalized_flux.ej_var[index] = np.sqrt(t[index])/normalized_flux.ej_sum[index] * 100.0
+
+        return normalized_flux
 
     def check_index(self, i, j):
         """Check the validation of temperature index i and energy index j
@@ -545,14 +550,12 @@ class Flux(FluxBase):
 
                 if self.flux_type != 'EJ-RESOLVED':
                     raise ValueError("INVALID flux type %s" % (self.flux_type))
-                # you need to figure out what is mc stat weight
                 for en_ind in range(0, len(self.energy_grid)):  # enegy cycle
                     for am_ind in range(0, len(self.angular_grid)):  # angular momentum cycle
                         ken = self.energy_grid[en_ind] - energy[pes]
                         # rint ken
                         dtemp = rotd_math.mc_stat_weight(
                             ken, self.angular_grid[am_ind], tim, dof)
-                        # self.logger.info "mc_weight:%f\n" % (dtemp)
                         dtemp *= (ej_fac * weight / np.sqrt(tim[0] * tim[1] * tim[2]))
                         self.ej_sum[en_ind][am_ind][pes] += dtemp
                         self.ej_var[en_ind][am_ind][pes] += dtemp ** 2

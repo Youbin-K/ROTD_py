@@ -82,12 +82,10 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contr
         # scipy
         mc_rate[t] = simps(enint, energy_grid)
         mc_rate_contrib[t] = int(list(enint).index(max(enint)))
-        # if temperature/rotd_math.Kelv >290 and  temperature/rotd_math.Kelv < 300:
-        #     for g, e in zip(energy_grid/rotd_math.Kelv, enint):
-        #         print(g, e)
+
 
     mc_rate *= 4. * np.pi / temper_fac
-    mc_rate *= rotd_math.conv_fac
+    mc_rate *= rotd_math.conv_fac * 1e-11
 
     if return_contrib:
         return mc_rate, mc_rate_contrib
@@ -130,7 +128,7 @@ def integrate_ej(ej_flux, ej_grid, energy_grid, return_contrib=False):
 
 def create_matplotlib_graph(x_lists=[[0., 1.]], data=[[1., 1.]], name="mtpltlb", x_label="x", y_label="y",\
                             data_legends=["y0"], comments=[""], xexponential=False, yexponential=False, splines=None, title=None,\
-                            user_ymax=None, user_ymin=None):
+                            user_ymax=None, user_ymin=None, plot_type='scatter'):
     """Function that create the input for a 2D matplotlib plot.
     x_lists: List of lists of floats.
     data: List of lists of floats.
@@ -194,7 +192,7 @@ from scipy.interpolate import make_interp_spline\n\n"""
             #content += f"ax.scatter(x{index}, y{index}, marker='x')\n"
             content += f"ax.plot(x{index}_spln, y_spln{index}, label='spln_{legend}')\n"
         else:
-            content += f"ax.scatter(x{index}, y{index}, label='{legend}', marker='.')\n"
+            content += f"ax.{plot_type}(x{index}, y{index}, label='{legend}', marker='.')\n"
 
     if xexponential:
         content += "ax.set_xscale('log')\n"

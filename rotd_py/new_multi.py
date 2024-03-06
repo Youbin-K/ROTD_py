@@ -195,23 +195,24 @@ class Multi(object):
                     self.total_flux[surf.surf_id].converged = True
                 #self.flux_indexes[int(surf.surf_id)][face_index] = face_flux.acct_smp() + 1
             #Surface is converged if it has an output, and the same or lower convergence threshold
-            if os.path.isfile(f'{self.sample.name}/output/surface_{surf.surf_id}.dat') and \
-            self.total_flux[surf.surf_id].converged and \
+            if self.total_flux[surf.surf_id].converged and \
             old_flux_base._flux_parameter['flux_rel_err'] <= self.fluxbase._flux_parameter['flux_rel_err'] and \
             old_flux_base._flux_parameter['pot_smp_max'] >= self.fluxbase._flux_parameter['pot_smp_max'] and \
             old_flux_base._flux_parameter['pot_smp_min'] >= self.fluxbase._flux_parameter['pot_smp_min'] and \
             old_flux_base._flux_parameter['tot_smp_max'] >= self.fluxbase._flux_parameter['tot_smp_max'] :
                 self.converged.append(True)
                 if rewrite_converged:
+                    os.chdir(self.sample.name)
                     self.total_flux[str(surf_id)].save_file(surf_id)
+                    os.chdir(self.workdir)
                 self.logger.info(f"RESTART: Surface {surf.surf_id} successfully converged. No calculations needed.")
             else:
+                self.total_flux[surf.surf_id].converged = False
                 self.converged.append(False)
                 self.logger.info(f"RESTART: Surface {surf.surf_id} not converged. More calculations needed.")
                 for fidx, face_num_samples in enumerate(self.samples_id[-1]):
                     #If a face has no sample, reinitialize the surface
                     if face_num_samples == 1:
-                        self.total_flux[surf.surf_id].converged = False
                         self.logger.info(f"RESTART: Face {fidx} saved with no sample. Reinitializing the face's flux.")
                         self.total_flux[surf.surf_id].flux_array[fidx] = Flux(temp_grid=self.fluxbase.temp_grid * rotd_math.Kelv,
                                                                             energy_grid=self.fluxbase.energy_grid * rotd_math.Kelv,
@@ -226,20 +227,22 @@ class Multi(object):
                         # for file in glob.glob(f"{self.sample.name}/Surface_{surf.surf_id}/jobs/surf{surf.surf_id}_face{fidx}*"):
                         #     os.remove(file)
                 #Actualize flux parameters in multiflux
-                self.total_flux[surf.surf_id].temp_grid = self.fluxbase.temp_grid
-                self.total_flux[surf.surf_id].tol = self.fluxbase.tol()
-                self.total_flux[surf.surf_id].pot_max = self.fluxbase.pot_max()
-                self.total_flux[surf.surf_id].tot_max = self.fluxbase.tot_max()
-                self.total_flux[surf.surf_id].selected_faces = self.selected_faces[index]
+                self.total_flux[surf.surf_id].temp_grid = copy.deepcopy(self.fluxbase.temp_grid)
+                self.total_flux[surf.surf_id].tol = copy.deepcopy(self.fluxbase.tol())
+                self.total_flux[surf.surf_id].pot_max = copy.deepcopy(self.fluxbase.pot_max())
+                self.total_flux[surf.surf_id].tot_max = copy.deepcopy(self.fluxbase.tot_max())
+                self.total_flux[surf.surf_id].selected_faces = copy.deepcopy(self.selected_faces[index])
+                self.total_flux[surf.surf_id].sample = copy.deepcopy(self.sample)
                 #Actualize flux parameters in all fluxes
-                for flux in self.total_flux[surf.surf_id].flux_array:
-                    flux.temp_grid = self.fluxbase.temp_grid * rotd_math.Kelv
-                    flux.energy_grid = self.fluxbase.energy_grid * rotd_math.Kelv
-                    flux.angular_grid = self.fluxbase.angular_grid
-                    flux.flux_type = self.fluxbase.flux_type
-                    flux.flux_parameter = self.fluxbase._flux_parameter
-                    flux.calculator = self.calculator
+                for face_id, flux in enumerate(self.total_flux[surf.surf_id].flux_array):
+                    flux.temp_grid = copy.deepcopy(self.fluxbase.temp_grid * rotd_math.Kelv)
+                    flux.energy_grid = copy.deepcopy(self.fluxbase.energy_grid * rotd_math.Kelv)
+                    flux.angular_grid = copy.deepcopy(self.fluxbase.angular_grid)
+                    flux.flux_type = copy.deepcopy(self.fluxbase.flux_type)
+                    flux.flux_parameter = copy.deepcopy(self.fluxbase._flux_parameter)
+                    flux.calculator = copy.deepcopy(self.calculator)
                     flux.job_id = None
+                    flux.sample = copy.deepcopy(self.sample)
                 self.logger.info(f"RESTART: Jobs will restart form indexes {self.samples_id[-1]}.")
         else:
             self.logger.info(f"RESTART: No entry for surface {surf.surf_id} found in {self.sample.name}/rotdPy_restart.db.")
@@ -504,7 +507,7 @@ class Multi(object):
                         elif line.startswith('E-J resolved:'):
                             ftype = 'E-J resolved'
                             line_index = 0
-                            column_index = 0
+                            column_index = 2
                             # recording = False
                             continue
                         elif "Uncorrected" in line:
@@ -536,23 +539,18 @@ class Multi(object):
                     min_energies_dist[output_energy_index].append(atoms_min.get_distance(scan_ref[0][0], scan_ref[0][1]))
                 #Save surface flux if minimum for a given temperature // CANONICAL
                 for temp_index in range(len(self.fluxbase.temp_grid)):
-                    #Initialize flux_origin, which saves from which surface the min flux is coming from
-                    # if len(flux_origin['Canonical']) < len(self.fluxbase.temp_grid):
-                    #     flux_origin['Canonical'].append(surf.surf_id,)
                     if multi_flux['Canonical'][surf.surf_id][temp_index] < min_flux['Canonical'][temp_index]:
                         min_flux['Canonical'][temp_index] = multi_flux['Canonical'][surf.surf_id][temp_index]
                         flux_origin['Canonical'][temp_index] = surf.surf_id
                 #Save surface flux if minimum for a given energy // MICROCANONICAL
                 for energy_index in range(len(self.fluxbase.energy_grid)):
-                    #Initialize flux_origin, which saves from which surface the flux is coming from
-                    # if len(flux_origin['Microcanonical']) < len(self.fluxbase.energy_grid):
-                    #     flux_origin['Microcanonical'].append(surf.surf_id,)
                     if multi_flux['Microcanonical'][surf.surf_id][energy_index] < min_flux['Microcanonical'][energy_index]:
                         min_flux['Microcanonical'][energy_index] = multi_flux['Microcanonical'][surf.surf_id][energy_index]
                         flux_origin['Microcanonical'][energy_index] = surf.surf_id
-                #Save surface flux if minimum for a given energy // EJ_resolved
+                #Save surface flux if minimum for a given J, energy // EJ_resolved
                 multi_flux['E-J resolved'][surf.surf_id] = np.reshape(multi_flux['E-J resolved'][surf.surf_id],\
-                                                                      (len(self.fluxbase.energy_grid), len(self.fluxbase.angular_grid)))
+                                                                      (len(self.fluxbase.energy_grid),\
+                                                                       len(self.fluxbase.angular_grid)))
                 for energy_index in range(len(self.fluxbase.energy_grid)):
                     for J_index in range(len(self.fluxbase.angular_grid)):
                         if multi_flux['E-J resolved'][surf.surf_id][energy_index][J_index] < min_flux['E-J resolved'][energy_index][J_index]:
@@ -562,24 +560,24 @@ class Multi(object):
             #E-J resolved plot
             #J integration
             ej2e_flux[output_energy_index] = \
-                integrate_ej(np.array(min_flux['E-J resolved']),\
-                             self.fluxbase.angular_grid,\
-                             self.fluxbase.energy_grid)
+                integrate_ej(min_flux['E-J resolved'],\
+                             copy.copy(self.fluxbase.angular_grid),\
+                             copy.copy(self.fluxbase.energy_grid))
 
             ej_rate[output_energy_index]=\
-                integrate_micro(np.array(ej2e_flux[output_energy_index]),\
-                                self.fluxbase.energy_grid,\
-                                self.fluxbase.temp_grid,\
+                integrate_micro(ej2e_flux[output_energy_index],\
+                                copy.copy(self.fluxbase.energy_grid),\
+                                copy.copy(self.fluxbase.temp_grid),\
                                 self.sample.get_dof())
 
             #Prepare micro-canonical plot
             mc_rate[output_energy_index], mc_rate_contrib[output_energy_index] = \
-                integrate_micro(np.array(min_flux['Microcanonical']),\
-                                self.fluxbase.energy_grid,\
-                                self.fluxbase.temp_grid,\
+                integrate_micro(min_flux['Microcanonical'],\
+                                copy.copy(self.fluxbase.energy_grid),\
+                                copy.copy(self.fluxbase.temp_grid),\
                                 self.sample.get_dof(),\
                                 return_contrib=True)
-            # mc_rate[output_energy_index] /= 6.0221e12
+
             rate_contrib_from_e = [int(flux_origin['Microcanonical'][int(index)]) for index in mc_rate_contrib[output_energy_index]]
             temp_list.append(self.fluxbase.temp_grid.tolist())
             comments.append(f"Sources: {rate_contrib_from_e}")
@@ -630,8 +628,8 @@ class Multi(object):
                                 splines=splines, title="Sampled minimum energy")#, comments=comments)
         
         create_matplotlib_graph(x_lists=temp_list, data = mc_rate, name=f"{self.sample.name}_micro_rate",\
-                                x_label="Temperature (K)", y_label="Rate constant (1e+11 cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
-                                xexponential=False, yexponential=True, comments=comments, title="Micro-canonical rate")
+                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
+                                xexponential=False, yexponential=True, comments=comments, title="Micro-canonical rate", plot_type='plot')
 
         create_matplotlib_graph(x_lists=temp_list, data = ej_rate, name=f"{self.sample.name}_ej_rate",\
                                 x_label="Temperature (K)", y_label="Rate constant (1e+11 cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\

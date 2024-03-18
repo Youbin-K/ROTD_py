@@ -17,7 +17,7 @@ from rotd_py.flux.flux import MultiFlux, Flux
 import rotd_py.rotd_math as rotd_math
 from rotd_py.system import FluxTag
 from rotd_py.job_tpl import py_tpl_str
-from rotd_py.analysis import integrate_micro, integrate_ej
+from rotd_py.analysis import integrate_micro, integrate_ej, get_Ne_from_e
 from rotd_py.analysis import create_matplotlib_graph
 
 from rotd_py.config_log import config_log
@@ -286,8 +286,8 @@ class Multi(object):
                 if first_job:
                     self.logger.info('The grids are:\n'
                                 f'temperature (K) {flux.temp_grid}\n'
-                                f'energy (cm-1) {flux.energy_grid}\n'
-                                f'angular momentum (cm-1) {flux.angular_grid}')
+                                f'energy (K) {flux.energy_grid}\n'
+                                f'angular momentum (a.u.) {flux.angular_grid}')
                     first_job = False
                 # create the minimum number of flux jobs, i.e., flux.pot_min()
                 if face_index not in self.selected_faces[int(surf.surf_id)]:
@@ -577,13 +577,31 @@ class Multi(object):
                                 copy.copy(self.fluxbase.temp_grid),\
                                 self.sample.get_dof(),\
                                 return_contrib=True)
+            #Ne file contains 2 column:
+            #1: Energy (cm-1)
+            #2: Number of states (unitless)
+            ne_file = []
+            Ne = get_Ne_from_e(min_flux['Microcanonical'],\
+                               self.sample.fragments)
+            for e_index, ne in enumerate(Ne):
+                ne_file.append("%14.4e %14.4e\n" % (\
+                    self.fluxbase.energy_grid[e_index] \
+                        *rotd_math.Kelv\
+                        *rotd_math.Hartree2cm,\
+                    ne))
+            with open(f'Ne_{output_energy_index}.out', 'w') as f:
+                f.writelines(ne_file)
 
-            rate_contrib_from_e = [int(flux_origin['Microcanonical'][int(index)]) for index in mc_rate_contrib[output_energy_index]]
+            rate_contrib_from_e = \
+                [int(flux_origin['Microcanonical'][int(index)])\
+                 for index in mc_rate_contrib[output_energy_index]]
             temp_list.append(self.fluxbase.temp_grid.tolist())
             comments.append(f"Sources: {rate_contrib_from_e}")
 
-            create_matplotlib_graph(x_lists=[list(self.fluxbase.temp_grid)], data=[rate_contrib_from_e], name=f"{self.sample.name}_mc_dividing_surfaces_{output_energy_index}",\
-                                    x_label=f"Temperature (Kelvin)",
+            create_matplotlib_graph(x_lists=[list(self.fluxbase.temp_grid)],\
+                                    data=[rate_contrib_from_e],\
+                                    name=f"{self.sample.name}_mc_dividing_surfaces_{output_energy_index}",\
+                                    x_label=f"Temperature (Kelvin)",\
                                     y_label="Surface index", \
                                     title="TS dividing surface")
             
@@ -632,7 +650,7 @@ class Multi(object):
                                 xexponential=False, yexponential=True, comments=comments, title="Micro-canonical rate", plot_type='plot')
 
         create_matplotlib_graph(x_lists=temp_list, data = ej_rate, name=f"{self.sample.name}_ej_rate",\
-                                x_label="Temperature (K)", y_label="Rate constant (1e+11 cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
+                                x_label="Temperature (K)", y_label="Rate constant (cm$^{3}$molecule$^{-1}$s$^{-1}$)", data_legends=data_legends_r,\
                                 xexponential=False, yexponential=True, comments=comments, title="E-J resolved rate")
 
         os.chdir(f"{self.workdir}")

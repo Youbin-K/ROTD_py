@@ -28,6 +28,8 @@ Kcal = units.kcal/units.mol/units.Hartree
 Bohr = units.Bohr
 # convert eV to Hartree
 Hartree = units.Hartree
+# convert Hartree to cm-1
+Hartree2cm = 219474.63
 # mass of  proton in amu
 mp = 1.672621898e-27/9.10938356e-31
 # Adopt from original Varecof convert the number of states to rate constant with unit

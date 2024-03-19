@@ -98,43 +98,43 @@ class Molpro:
                 
             method = " {rhf;wf," + f"{self.nelectron},{self.symm},{self.spin},{self.charge}" + "}\n\n"
 
-            match regex_in(self.calc['method']):
-                case r".*caspt2\([0-9]+,[0-9]+\)":
-                    if 'shift' in self.calc:
-                        shift = self.calc['shift']
-                    else:
-                        shift = 0.25
-                    active_electrons = int(self.calc['method'].split("caspt2(")[1].split(",")[0])
-                    active_orbitals = int(self.calc['method'].split("caspt2(")[1].split(",")[1][:-1])
-                    closed_orbitals = int(math.trunc(self.nelectron-active_electrons)/2)
-                    occ_obitals = closed_orbitals + active_orbitals
-                    method += " {multi,\n" + f" occ,{occ_obitals}\n closed,{closed_orbitals}\n" + " }\n\n"
-                    if self.spin == 0:
-                        method += " {rs2c, shift=" + f"{shift}" + "}\n"
-                    else:
-                        method += " {rs2, shift=" + f"{shift}" + "}\n"
-                case "ccsd\(t\)":
-                    method += " {ccsd(t)-f12}\n"
-                case "uwb97xd":
-                    method += " omega=0.2    !range-separation parameter\n"
-                    method += " srx=0.222036 !short-range exchange\n"
-                    method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
-                    method += " {int; ERFLERFC,mu=$omega,srfac=$srx}\n"
-                    method += " uks,HYB_GGA_XC_WB97X_D\n"
-                case "wb97xd":
-                    method += " omega=0.2    !range-separation parameter\n"
-                    method += " srx=0.222036 !short-range exchange\n"
-                    method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
-                    method += " {int; ERFLERFC,mu=$omega,srfac=$srx}\n"
-                    method += " ks,HYB_GGA_XC_WB97X_D\n"
-                case "ub3lyp":
-                    method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
-                    method += " uks,HYB_GGA_XC_B3LYP\n"
-                case "b3lyp":
-                    method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
-                    method += " ks,HYB_GGA_XC_B3LYP\n"
-                case _:
-                    raise NotImplementedError
+            mtd = regex_in(self.calc['method'])
+            if mtd == r".*caspt2\([0-9]+,[0-9]+\)":
+                if 'shift' in self.calc:
+                    shift = self.calc['shift']
+                else:
+                    shift = 0.25
+                active_electrons = int(self.calc['method'].split("caspt2(")[1].split(",")[0])
+                active_orbitals = int(self.calc['method'].split("caspt2(")[1].split(",")[1][:-1])
+                closed_orbitals = int(math.trunc(self.nelectron-active_electrons)/2)
+                occ_obitals = closed_orbitals + active_orbitals
+                method += " {multi,\n" + f" occ,{occ_obitals}\n closed,{closed_orbitals}\n" + " }\n\n"
+                if self.spin == 0:
+                    method += " {rs2c, shift=" + f"{shift}" + "}\n"
+                else:
+                    method += " {rs2, shift=" + f"{shift}" + "}\n"
+            elif mtd == "ccsd\(t\)":
+                method += " {ccsd(t)-f12}\n"
+            elif mtd ==  "uwb97xd":
+                method += " omega=0.2    !range-separation parameter\n"
+                method += " srx=0.222036 !short-range exchange\n"
+                method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
+                method += " {int; ERFLERFC,mu=$omega,srfac=$srx}\n"
+                method += " uks,HYB_GGA_XC_WB97X_D\n"
+            elif mtd ==  "wb97xd":
+                method += " omega=0.2    !range-separation parameter\n"
+                method += " srx=0.222036 !short-range exchange\n"
+                method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
+                method += " {int; ERFLERFC,mu=$omega,srfac=$srx}\n"
+                method += " ks,HYB_GGA_XC_WB97X_D\n"
+            elif mtd ==  "ub3lyp":
+                method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
+                method += " uks,HYB_GGA_XC_B3LYP\n"
+            elif mtd ==  "b3lyp":
+                method += " {grid,wcut=1d-30,min_nr=[175,250,250,250],max_nr=[175,250,250,250],min_L=[974,974,974,974],max_L=[974,974,974,974]}\n"
+                method += " ks,HYB_GGA_XC_B3LYP\n"
+            else:
+                raise NotImplementedError
 
             with open(f'{self.name}.inp', 'w') as f:
                 f.write(self.tpl.format(name=self.name,
@@ -188,7 +188,7 @@ class Molpro:
 class regex_in:
     string: str
 
-    def __eq__(self, other: str | re.Pattern):
+    def __eq__(self, other):#Python 3.10 only: str | re.Pattern):
         if isinstance(other, str):
             other = re.compile(other)
         assert isinstance(other, re.Pattern)

@@ -1,6 +1,6 @@
 import numpy as np
 from enum import Enum
-from ase import Atoms, units
+# from ase import Atoms, units
 
 
 class MolType(Enum):

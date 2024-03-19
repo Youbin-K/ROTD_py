@@ -12,23 +12,22 @@ class Correction():
         self.type = parameters["type"].casefold()
         self.default_energy = None
         parameter_missing = False
-        match self.type:
-            case "1d":
-                necessary_data = ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
-                for key in necessary_data:
-                    if key not in parameters:
-                        # self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
-                        self.default_energy = 0.
-                        parameter_missing = True
-                if not parameter_missing:
-                    self.set_1d_correction(parameters)
-            case "relaxed":
-                pass
-            case "counterpoise":
-                # self.logger.warning(f"Counterpoise: correction is only implemented for gaussian calculator")
-                self.set_counterpoise()
-            case "custom":
-                pass
+        if self.type == "1d":
+            necessary_data = ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
+            for key in necessary_data:
+                if key not in parameters:
+                    # self.logger.warning(f"1d correction: {key} is not set. 1d correction will not be applied")
+                    self.default_energy = 0.
+                    parameter_missing = True
+            if not parameter_missing:
+                self.set_1d_correction(parameters)
+        elif self.type == "relaxed":
+            pass
+        elif self.type == "counterpoise":
+            # self.logger.warning(f"Counterpoise: correction is only implemented for gaussian calculator")
+            self.set_counterpoise()
+        elif self.type == "custom":
+            pass
 
     def set_counterpoise(self):
         self.fragments_indexes = []
@@ -94,31 +93,29 @@ class Correction():
     def energy(self, configuration=None, distance=None):
         if self.default_energy != None:
             return self.default_energy
-        match self.type:
-            case "1d":
-                if distance != None:
-                    if distance > min(max(self.r_trust), max(self.r_sample)):
-                        return 0.
-                    elif distance < max(min(self.r_trust), min(self.r_sample)):
-                        return self._1d_correction(max(min(self.r_trust), min(self.r_sample)))
-                    else:
-                        return self._1d_correction(distance)
-                distance = np.inf
-                for scr in self.scan_ref:
-                    distance = min(distance, np.absolute(np.linalg.norm(configuration.positions[scr[0]] -\
-                                                        configuration.positions[scr[1]])))
-                    if distance > min(max(self.r_trust), max(self.r_sample)):
-                        return 0.
-                    elif distance < max(min(self.r_trust), min(self.r_sample)):
-                        return 0.
-                    else:
-                        return self._1d_correction(distance)
-            case 'counterpoise':
-                return self.basis_set_superposition_error(configuration)
-            case "relaxed":
-                pass
+        if self.type == "1d":
+            if distance != None:
+                if distance > min(max(self.r_trust), max(self.r_sample)):
+                    return 0.
+                elif distance < max(min(self.r_trust), min(self.r_sample)):
+                    return self._1d_correction(max(min(self.r_trust), min(self.r_sample)))
+                else:
+                    return self._1d_correction(distance)
+            distance = np.inf
+            for scr in self.scan_ref:
+                distance = min(distance, np.absolute(np.linalg.norm(configuration.positions[scr[0]] -\
+                                                    configuration.positions[scr[1]])))
+                if distance > min(max(self.r_trust), max(self.r_sample)):
+                    return 0.
+                elif distance < max(min(self.r_trust), min(self.r_sample)):
+                    return 0.
+                else:
+                    return self._1d_correction(distance)
+        elif self.type == 'counterpoise':
+            return self.basis_set_superposition_error(configuration)
+        else:
+            pass
         
-                    
     def plot(self, xmin=0., xmax=20.):
         """Function that create a matplotlib plot of the correction"""
         x = np.arange(xmin, xmax, 0.01)

@@ -143,7 +143,7 @@ class Multi(object):
                 print("Could not find molpro.tpl: molpro single point template")
                 print("Using rotdPy integrated template, updated from calculator.")
         elif self.calculator['code'][-3:].casefold() == 'amp':
-            if os.path.isfile('molpro.tpl'):
+            if os.path.isfile(f"{self.calculator['code']}"):
                 shutil.copy(f"{self.calculator['code']}", self.sample.name)
             else:
                 print("Could not find amp file in submission directory")

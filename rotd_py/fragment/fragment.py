@@ -6,6 +6,7 @@ from rotd_py.system import MolType
 
 
 class Fragment(Atoms):
+
     """Fragment Class is used for describing the fragment
     Fragment could be atom, molecule or even a slab.
     This is a class which inherits from the atoms object in Atomistic Simulation Environement (ASE).
@@ -15,6 +16,7 @@ class Fragment(Atoms):
 
     uniqe parameters for rotd_py:
     mol_type: the geometric information of the fragment, it could be NONATOMIC,
+
              LINEAR, and NONLINEAR
     mol_frame_positions: the molecule positions used as a reference for
                         rotating the molecule, with the unit of Bohr
@@ -48,13 +50,16 @@ class Fragment(Atoms):
                        constraint, calculator, info)
         self.frag_array = {}
 
+
         self.set_molframe_positions()
+
         self.set_molecule_type()
         self.init_dynamic_variable()
 
     @property
     def molecule_type(self):
         """Get the molecule type"""
+
         return self.frag_array['mol_type']
 
     @abstractmethod
@@ -65,11 +70,14 @@ class Fragment(Atoms):
         """
 
     def get_total_mass(self):
+
         """Return the total mass of the molecule, in atomic units """
+
         return sum(self.get_masses()) * rotd_math.mp
 
     def get_stat_sum(self):
         """Return the parameters for calculating number of states. """
+
         return self.frag_array['stat_sum']
 
     def get_molframe_positions(self):
@@ -82,17 +90,26 @@ class Fragment(Atoms):
     def get_relative_positions(self):
         """Return the positions that are relative to center of mass. """
         com = self.get_center_of_mass()
+
         positions = self.get_positions()
         positions -= com
 
         return positions
 
     def set_molframe_positions(self):
-        """Method used to set up the matrix. Convert the input Cartesian
+
+        #print ("11111")
+        #This is called out only in the beginning.
+
+        """Method used to set up the matrix convert the input Cartesian
         coordinates to molecular frame coordinates and the molecule frame
         positions.
 
+        
         """
+
+        #print ("setting molframe_position")
+        
         rel_pos = self.get_relative_positions() / rotd_math.Bohr
         masses = self.get_masses() * rotd_math.mp
         I11 = I22 = I33 = I12 = I13 = I23 = 0.0
@@ -122,9 +139,11 @@ class Fragment(Atoms):
         self.frag_array['orig_mfo'] = evecs
         self.frag_array['mol_frame_positions'] = np.dot(rel_pos, evecs)
 
+
     # all the following are dynamic variable related to on-the-fly sampling
     def init_dynamic_variable(self):
         """Initialize the dynamic variable related to rotating the molecule. """
+
         self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3))
         self.frag_array['lab_frame_COM'] = np.zeros(3)
         self.frag_array['orient_vector'] = np.zeros(self.get_ang_size())
@@ -134,6 +153,7 @@ class Fragment(Atoms):
         """Set up the rotation vector (random generated) for the molecule.
 
         """
+
         if len(orient_vec) != len(self.frag_array['orient_vector']):
             raise ValueError("Orientation vector dimension does not fit")
         for i in range(0, len(orient_vec)):
@@ -144,6 +164,7 @@ class Fragment(Atoms):
         after getting the rotation vector between the two fragments.
 
         """
+
         if any(item is None for item in new_com) or len(new_com) != 3:
             raise ValueError('Wrong dimension of position')
         for i in range(0, len(new_com)):
@@ -164,11 +185,13 @@ class Fragment(Atoms):
     def get_labframe_positions(self):
         return self.frag_array['lab_frame_positions'].copy()
 
+
     # The following functions are related to the type of molecule, 
     # so they are defined separately under each molecular type.
     @abstractmethod
     def set_rotation_matrix(self):
         """Set up the mfo (molecule frame rotation)
+
         matrix after generating the rotation vector for the fragment
 
         """
@@ -179,11 +202,13 @@ class Fragment(Atoms):
         """Update the lab frame positions of fragment after rotation.
            labframe_pos = lab_com + np.dot(molframe_pos, rotation_matrix)
 
+
         """
         pass
 
     @abstractmethod
     def lf2mf(self, lf_vector):
+
         """Convert the input vector(lab frame vector) to molecule frame.
 
         """
@@ -192,14 +217,18 @@ class Fragment(Atoms):
 
     @abstractmethod
     def mf2lf(self, mf_vector):
+
         """Convert the input vector(molecule frame vector) to laboratory frame.
+
 
         """
         pass
 
     @abstractmethod
     def get_labframe_imm(self, i, j):
+
         """return the [i][j] value in the moments of inertia matrix in lab frame value
+
         """
         pass
 

@@ -1,5 +1,7 @@
 import numpy as np
+
 import rotd_py.rotd_math as rotd_math
+
 from scipy.integrate import simps
 
 # This file is used to parse the calculated flux
@@ -15,7 +17,11 @@ def get_thermal(file_name, t_size, pes_index):
     for i, line in enumerate(lines):
         if line.startswith('Canonical'):
             for j in range(0, t_size):
+
                 thermal_flux[j] += float(lines[i+2+j].split()[1 + pes_index])
+
+                thermal_flux[j] += float(lines[i+1+j].split()[1 + pes_index])
+
     return thermal_flux
 
 
@@ -27,6 +33,7 @@ def get_micro(file_name, e_size, pes_index):
     for i, line in enumerate(lines):
         if line.startswith('Microcanonical'):
             for j in range(0, e_size):
+
                 e_flux[j] += float(lines[i+2+j].split()[1 + pes_index])
     return e_flux
 
@@ -51,7 +58,9 @@ def get_ej_flux(file_name, e_size, j_size, pes_index, face=None):
                     for j in range(0, j_size):
                         ej_flux[i][j] += float(lines[k+i*j_size+j+2].split()[2 + pes_index])
 
+
     return ej_flux
+
 
 
 def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contrib=False):
@@ -71,6 +80,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contr
 
     if len(energy_grid) != len(e_flux):
         raise ValueError("mc_flux and energy dimension INVALID")
+
     energy_grid = energy_grid * rotd_math.Kelv # Convert from K to Hartree
     temperature_grid = temperature_grid * rotd_math.Kelv
     temper_fac = np.power(temperature_grid, dof_num//2)
@@ -78,6 +88,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contr
         temper_fac *= np.sqrt(temperature_grid)
     mc_rate = np.zeros(len(temperature_grid))
     mc_rate_contrib = np.zeros(len(temperature_grid))
+
 
     for t, temperature in enumerate(temperature_grid):
 
@@ -89,6 +100,7 @@ def integrate_micro(e_flux, energy_grid, temperature_grid, dof_num, return_contr
         # in the original rotd, a davint integral in slatec is used, which is a
         # overlapping parabolas fitting, thus here, we use simpson's integral in
         # scipy
+
             #SUBROUTINE DAVINT (X, Y, N, XLO, XUP, ANS, IERR)
             #     Description of Parameters
 # C         The user must dimension all arrays appearing in the call list

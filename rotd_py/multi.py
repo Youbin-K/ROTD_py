@@ -1,4 +1,6 @@
+
 import os
+
 from mpi4py import MPI
 from mpi_master_slave import Master, Slave
 from mpi_master_slave import WorkQueue
@@ -48,13 +50,22 @@ class multi_master():
         """
         # Here the number of tasks is the initial number of tasks saved in the
         # working queue.
+
+        #print ("asdf", self.total_flux)
         num_surfaces = len(self.total_flux)
         curr_surf = 0
         curr_flux = self.total_flux[str(curr_surf)]  # multiflux
+        #print ("self.total_flux, in multi_master", self.total_flux)
+
+        #print ("curr_flux:", curr_flux)
 
         # initialize the calculation for the first dividing surface
+        
+        # 진짜 딱 1번만 불림 Multi master는 처음에만 불리는 function   
         for i in range(0, curr_flux.num_faces):
             flux = copy.deepcopy(curr_flux.flux_array[i])
+            #print ("fluxxxx", flux)
+
             for j in range(flux.pot_min()):
                 self.work_queue.add_work(data=(FluxTag.FLUX_TAG, flux,
                                                curr_surf, flux.samp_len()))
@@ -70,13 +81,20 @@ class multi_master():
             self.work_queue.do_work()
             for slave_flux, sid in self.work_queue.get_completed_work():
                 # update flux
+
+                #print ("self.work_queue", self.work_queue.get_completed_work) # Not helpful
+                #print ("This is slave_flux", slave_flux) # Dict?
+                #print ("sid, j ", sid) # Always 0
+
                 if sid < curr_surf:
                     continue
                 face_index = slave_flux.sample.div_surface.get_curr_face()
                 curr_multi_flux = self.total_flux[str(sid)]
                 curr_flux = curr_multi_flux.flux_array[face_index]  # multiflux
 
-                print("surface_index%d" % (sid))
+                print("surface_index%d" % (sid)) # Should keep this turned on(original)
+                #print ("test", slave_flux.acct_smp())
+
                 curr_flux.add_acct_smp(slave_flux.acct_smp())
                 curr_flux.add_close_smp(slave_flux.close_smp())
                 curr_flux.add_face_smp(slave_flux.face_smp())
@@ -84,6 +102,9 @@ class multi_master():
                 curr_flux.temp_sum += slave_flux.temp_sum
                 curr_flux.temp_var += slave_flux.temp_var
                 curr_flux.e_sum += slave_flux.e_sum
+
+                #print ("multi.py curr_flux.e_sum: ", curr_flux.e_sum) # all added value of self.e_sum[en_ind][pes] is printed with this
+
                 curr_flux.e_var += slave_flux.e_var
                 curr_flux.ej_sum += slave_flux.ej_sum
                 curr_flux.ej_var += slave_flux.ej_var
@@ -91,7 +112,10 @@ class multi_master():
                 # update the minimum energy and configuration
                 for i in range(0, curr_flux.energy_size):
                     if slave_flux.min_energy[i] < curr_flux.min_energy[i]:
-                        print("multi:%f" % (slave_flux.min_energy[i]))
+
+                        # This updates the minimum energy obtained from flux.py
+                        print("multi:%f" % (slave_flux.min_energy[i]), "unit in Hartree")
+
                         curr_flux.min_energy[i] = slave_flux.min_energy[i]
                         curr_flux.min_geometry[i] = slave_flux.min_geometry[i].copy()
                 # check the current flux converged or not
@@ -100,6 +124,8 @@ class multi_master():
                 if flux_tag == FluxTag.FLUX_TAG:
                     face_index = smp_info
                     flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
+
+                    #print ("FLUX_TAG", flux)
                     self.work_queue.add_work(data=(flux_tag, flux, sid,
                                                    flux.samp_len()))
 
@@ -109,6 +135,8 @@ class multi_master():
                     for face_index in range(0, len(smp_num)):
                         if smp_num[i] != 0:
                             flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
+
+                            print ("SURF_TAG", flux)
                             self.work_queue.add_work(data=(flux_tag, sid, flux,
                                                            smp_num[i]))
 
@@ -124,6 +152,9 @@ class multi_master():
                         curr_flux = self.total_flux[str(curr_surf)]
                         for i in range(curr_flux.num_faces):
                             flux = copy.deepcopy(curr_flux.flux_array[i])
+
+                            print ("STOP_TAG", flux)
+
                             for j in range(flux.pot_min()):
                                 self.work_queue.add_work(data=(FluxTag.FLUX_TAG,
                                                                flux, curr_surf,
@@ -137,6 +168,7 @@ class multi_master():
 
 
 class MySlave(Slave):
+
     """
     A slave process extends Slave class, overrides the 'do_work' method
     and calls 'Slave.run'. The Master will do the rest
@@ -171,8 +203,10 @@ class Multi(object):
     so it gives work to do to its slaves until all the work is done
     """
 
+
     def __init__(self, fluxbase=None, dividing_surfaces=None, sample=None,
                  calculator=None, max_jobs=float('inf')):
+
         """Initialize the multi flux calculation.
 
         Parameters
@@ -190,6 +224,8 @@ class Multi(object):
         self.sample = sample
         self.fluxbase = fluxbase
         self.total_flux = OrderedDict()
+
+
         num_faces = 0
         if self.dividing_surfaces is not None:
             num_faces = self.dividing_surfaces[0].get_num_faces()
@@ -202,11 +238,13 @@ class Multi(object):
                                                     sample=indivi_sample,
                                                     calculator=calculator)
         self.slave = MySlave()
+
         if calculator == 'molpro':
             try:
                 os.mkdir('scratch')
             except FileExistsError:
                 pass
+
 
     def run(self):
         # start the mpi run
@@ -215,17 +253,21 @@ class Multi(object):
         size = MPI.COMM_WORLD.Get_size()
 
         print('I am  %s rank %d (total %d)' % (name, rank, size))
+
+        #print (size) # total %d prints the size
         try:
             if rank == 0:  # Master
 
-                app = multi_master(slaves=range(1, size),
-                                   total_flux=self.total_flux)
+                app = multi_master(slaves=range(1, size), total_flux=self.total_flux)
                 app.run()
                 # save the last flux
                 app.terminate_slaves()
-
+            elif rank ==1:
+                self.slave.run() 
             else:
-                self.slave.run()
+                print ("rank is not 1")
+                #self.slave.run()
+
         except KeyError:
             MPI.COMM_WORLD.Abort(1)
         print('Task complete! (rank %d' % rank)

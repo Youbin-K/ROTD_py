@@ -15,8 +15,10 @@ class FluxBase(object):
         The angular momentum for e-j resolved flux calculation.
     flux_type : String
         The target flux calculation type: CANONICAL, MICROCANONICAL, EJ-RESOLVED.
+
     flux_parameter : dictionary for defining the sampling and accuracy of the flux
         calculation. Includes:
+
         'flux_rel_err': the tolerance of flux relative error
         'pot_smp_max': the maximum number of sampling for each facet
         'pot_smp_min': the minimum number of sampling for each facet

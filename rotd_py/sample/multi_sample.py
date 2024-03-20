@@ -3,6 +3,12 @@ from rotd_py.sample.sample import Sample, preprocess
 import rotd_py.rotd_math as rotd_math
 from rotd_py.system import MolType, SampTag
 
+from ase import Atoms, atoms
+from ase.constraints import FixAtoms
+from ase.constraints import FixBondLength
+from ase.io.trajectory import Trajectory
+
+
 
 class MultiSample(Sample):
 
@@ -11,7 +17,9 @@ class MultiSample(Sample):
     For MultiSample, there is no sample constraint area. In another word,
     both center of mass vector and the fragments themselves can rotate in any
     direction.
+
     For current usage, this class only considers 2 fragments system.
+
     """
 
     def generate_configuration(self):
@@ -29,51 +37,129 @@ class MultiSample(Sample):
         for frag in self.fragments:
             total_mass += frag.get_total_mass()
         mfactor = np.zeros(2)
-        mfactor[0] = self.fragments[1].get_total_mass()/total_mass
+
+        mfactor[0] = self.fragments[1].get_total_mass()/total_mass #시작은 이거로 하면서 결국 fragment로 들어가서 싹다 부르고 나올듯
         mfactor[1] = -self.fragments[0].get_total_mass()/total_mass
-        emass = self.fragments[0].get_total_mass() * mfactor[0]
+        emass = self.fragments[0].get_total_mass() * mfactor[0] # This is reduced mass
 
         # random orient a vector between the center of mass of two fragments
-        com_vec = rotd_math.random_orient(3)
+        com_vec = rotd_math.random_orient(3)  # 1st step
+        #print ("com_vec", com_vec) # 3 array
 
         # random rotate each fragment based on random generated solid angle.
+        
+        ### 무조건 if 랑 else가 둘다 돌고있음
+ 
+        for frag in self.fragments:
+            if frag.molecule_type == MolType.SLAB:
+                #print ("hm", frag)
+                
+                orient = rotd_math.random_orient(frag.get_ang_size()) 
+                frag.set_ang_pos(orient)
+                #frag.set_rotation_matrix()
+                #print ("2222")
+                #c = FixAtoms(indices = [atom.index for atom in frag if atom.symbol =='Pt'])
+                #frag.set_constraint(c)
+                
+                #print ("multisample frag", frag) # Check whether nonlinear, linear & ch3 & pbc
+                #print ("multisample orient", orient) # 4 array
+                #print ("The position of angle set by ang_pos: ", frag.set_ang_pos(orient))
+                #print ("rotation matrix: ", frag.set_rotation_matrix())
+                #print ("iiiiii", i)
+
+                #traj = Trajectory('slab.traj', 'a', frag)
+                #traj.write()
+                #traj.close()
+            else:    
+                orient = rotd_math.random_orient(frag.get_ang_size())
+                frag.set_ang_pos(orient)
+                frag.set_rotation_matrix()
+                #print ("else")
+                #print ("else frag", frag)
+                #print ("iiiiii", i)
+                #frag.translate([0.0, 0.0, 100.0])
+
+                #traj2 = Trajectory('linear.traj', 'a', frag)
+                #traj2.write()
+                #traj2.close()
+
+        #print ("Multisample #2 ")
+        """
+
+
         for frag in self.fragments:
             orient = rotd_math.random_orient(frag.get_ang_size())
             frag.set_ang_pos(orient)
             frag.set_rotation_matrix()
 
+            #print ("The position of angle set by ang_pos: ", frag.set_ang_pos(orient))
+            #print ("GETT", frag.get_ang_pos(orient))        
+        """ 
         # get the pivot points coordinates for current face in the laboratory frame
         lfactor = 1.0
         lf_pivot = np.zeros((2, 3))
+        #print ("lf_pivot_1, np.zeros(2,3)", lf_pivot)
+
         curr_face = self.div_surface.get_curr_face()
         if all(frag.molecule_type == MolType.LINEAR for frag in self.fragments):
             # for linear molecule, the pivot point could only sit on x-axis?
             for i in range(0, len(self.fragments)):
                 lf_pivot[i][:] = (self.fragments[i].get_ang_pos() *
                                   self.div_surface.get_pivot_point(i, curr_face)[0])
+                #print ("lf pivot [i][:] = ", lf_pivot[i][:])
+                #print ("aaaa") # Only running when all are linear.
+                #print ("Whats happening") All rows change corresdpondent to the i
         else:
             for i in range(0, len(self.fragments)):
                 sample_info, lfactor = self.labframe_pivot_point(
-                    i, com_vec, lf_pivot[i], lfactor)
+                    i, com_vec, lf_pivot[i], lfactor) # lfactor 두번 씌어지나??
+                #print ("lfactor in the for loop: ", lfactor) This is alwyas 1
+
                 if sample_info == SampTag.SAMP_FACE_OUT:
                     return SampTag.SAMP_FACE_OUT
-
-        # now set the reaction coordinate vector
+       
+        #print ("0 Pivot: ", lf_pivot[0])
+        #print ("1 Pivot: ", lf_pivot[1])
+        #now set the reaction coordinate vector
         lf_com = com_vec * self.div_surface.get_dist(curr_face) - lf_pivot[0] + lf_pivot[1]
         new_positions = []
-        # update the fragments to lab frame position
+        #print ("0 Pivot: ", lf_pivot[0])
+        #print ("1 Pivot: ", lf_pivot[1])
+        #print ("COMM", lf_com) ##
+
+        # update the fragments' lab frame position
         # and get the configuration as a whole
+
+        # 여기에 if 넣으면 슬랩이fix 안해도 고정될수도?
+        
         for i in range(0, 2):
             # update COM positions
             self.fragments[i].set_labframe_com(lf_com * mfactor[i])
+
             # set up the final laboratory frame of two fragment
             self.fragments[i].set_labframe_positions()
+            
             for pos in self.fragments[i].get_labframe_positions():
                 new_positions.append(pos)
-
+        
         # check whether the atoms of two fragments are too close:
         if self.if_fragments_too_close():
             return SampTag.SAMP_ATOMS_CLOSE
+
+
+        """        
+        if frag.molecule_type == MolType.SLAB and self.if_slab_and_molecule_too_close():
+            print ("distance test working")
+            #traj = Trajectory('wtf happening.traj', 'a', lb_pos_platinum)
+            #traj.write()
+            #traj.close()
+            return SampTag.SAMP_ATOMS_CLOSE
+        """
+
+        #print ("Multisample Checking 3")
+        #if frag.molecule_type == MolType.SLAB and self.if_slab_and_molecule_too_close():
+        #    print ("Multisample_test")
+        #    return SampTag.SAMP_ATOMS_CLOSE
 
         # check the distance between pivot points of other faces
         for face in range(0, self.div_surface.get_num_faces()):
@@ -85,16 +171,71 @@ class MultiSample(Sample):
 
         # until now, the sampling is valid, set up the configuration
         new_positions = np.array(new_positions)  # in units of Bohr
-        # in order to use ASE, convert back to angstrom
-        self.configuration.set_positions(new_positions * rotd_math.Bohr)
 
-        # calculate the kinematic weight (Phi in the equation)
+        # convert back to angstrom
+        new_positions *= rotd_math.Bohr # in units of Ang
+        #TEMP: Move C and O by 20 angstrom in z-direction
+        if frag.molecule_type == MolType.SLAB:
+            #print ("testing") #works
+            new_positions[0][2] += 20.
+            new_positions[1][2] += 20.
+        
+
+        #Check the distance of slab and molecule
+        """
+        if frag.molecule_type == MolType.SLAB and self.if_slab_and_molecule_too_close():
+            print ("distance test working")
+            return SampTag.SAMP_ATOMS_CLOSE
+        """
+
+        # in order to use ASE, convert back to angstrom
+        self.configuration.set_positions(new_positions)
+        """ 
+        if frag.molecule_type == MolType.SLAB and self.if_slab_and_molecule_too_far():
+            print ("too far")
+            return SampTag.SAMP_ATOMS_CLOSE
+
+        if frag.molecule_type == MolType.SLAB and self.if_slab_and_molecule_too_close():
+            print ("too close")
+            return SampTag.SAMP_ATOMS_CLOSE
+
+        #print ("I WANT THAT WAY")
+        """
+
+        """
+        if frag.molecule_type == MolType.SLAB and self.check_molecule_x_coordinate():
+            print ("X processing")
+            return SampTag.SAMP_ATOMS_CLOSE
+        
+        
+        if frag.molecule_type == MolType.SLAB and self.check_molecule_y_coordinate():
+            print ("Y processing")
+            return SampTag.SAMP_ATOMS_CLOSE
+        """
+
+        if frag.molecule_type == MolType.SLAB and self.check_molecule_z_coordinate():
+            #print ("Low molecule removal")
+            return SampTag.SAMP_ATOMS_CLOSE
+        
+
+        if frag.molecule_type == MolType.SLAB and self.check_in_rhombus():
+            #print ("HATE RHOMBUS")
+            return SampTag.SAMP_ATOMS_CLOSE
+
+        # calculate the kinematic weight (Phi in the equation) << I'm not sure
         rc_vec = com_vec.copy()  # orbital coordinates (reaction coordinates)
-        rc_vec /= np.sqrt(emass)
+        #print ("rc_vec initial", rc_vec)
+        rc_vec /= np.sqrt(emass)  # This means  a = a/b (i.e. rc_vec = rc_vec/np.sqrt(emass) emass = reduced mass
+        #print ("rc_vec with mass", rc_vec)
+
         # internal coordinates
         for index, frag in enumerate(self.fragments):
             if frag.molecule_type == MolType.MONOATOMIC:
                 continue
+
+            elif frag.molecule_type == MolType.SLAB:
+                continue
+
             elif frag.molecule_type == MolType.LINEAR:
                 if index == 0:
                     rc_vec = np.append(rc_vec, np.cross(lf_pivot[index, :], com_vec)
@@ -104,6 +245,7 @@ class MultiSample(Sample):
                                        / np.sqrt(frag.get_inertia_moments()))
             elif frag.molecule_type == MolType.NONLINEAR:
                 mf_com = frag.lf2mf(com_vec)
+
                 if index == 0:
                     rc_vec = np.append(rc_vec,\
                                        np.cross(self.div_surface.get_pivot_point(index,\
@@ -125,6 +267,7 @@ class MultiSample(Sample):
     def labframe_pivot_point(self, frag_index, com_vec, lf_pivot, lfactor):
         """Converting the pivot point coordinates to lab frame coordinates.
 
+
         Parameters
         ----------
         frag_index : int
@@ -139,17 +282,28 @@ class MultiSample(Sample):
         Returns
         -------
         type Boolean
+
             check whether this sample is valid or not
 
         """
 
         frag = self.fragments[frag_index]
-        temp_com = com_vec.copy()  # in case modify the original com_vec
+
+        temp_com = com_vec.copy()  # in c
+  modify the original com_vec
         face = self.div_surface.get_curr_face()
 
         if frag.molecule_type == MolType.MONOATOMIC:
             lf_pivot = np.zeros(3)
             return [SampTag.SAMP_SUCCESS, lfactor]
+        elif frag.molecule_type == MolType.SLAB:
+            #lf_pivot = np.zeros(3)
+            lf_temp = frag.mf2lf(self.div_surface.get_pivot_point(frag_index, face))
+            for i in range(0, len(lf_pivot)):
+                lf_pivot[i] = lf_temp[i]          
+                #print ("Slab lf_pivot: ", lf_pivot[i])
+            return [SampTag.SAMP_SUCCESS, lfactor]
+            
         elif frag.molecule_type == MolType.NONLINEAR:
             #reorientate the pivot point according to the fragment reorientation
             #during set_molframe_positions()
@@ -159,6 +313,18 @@ class MultiSample(Sample):
             #lf_temp = frag.mf2lf(self.div_surface.get_pivot_point(frag_index, face))
             for i in range(0, len(lf_pivot)):
                 lf_pivot[i] = lf_temp[i]
+
+        '''
+        이건 기존에 있던 내버전의 Nonlinear.
+        elif frag.molecule_type == MolType.NONLINEAR:
+            # return pivot_point_vector in molecule frame * rotation matrix
+            lf_temp = frag.mf2lf(self.div_surface.get_pivot_point(frag_index, face))
+            for i in range(0, len(lf_pivot)):
+                lf_pivot[i] = lf_temp[i]
+                #print ("Nonlinear pivot: ", lf_pivot[i])
+        '''    
+        
+        #print ("return of nonlinear",SampTag.SAMP_SUCCESS, lfactor) always 1 because it is returned
             return [SampTag.SAMP_SUCCESS, lfactor]
 
         elif frag.molecule_type == MolType.LINEAR:
@@ -181,10 +347,12 @@ class MultiSample(Sample):
                     return [SampTag.SAMP_FACT_OUT, lfactor]
                 if dtemp > 1.0e-14:
                     lfactor = 2. * u/dtemp/self.div_surface.get_dist(face)
+
                 else:
                     lfactor = 0.0
 
                 lf_pivot = frag.get_ang_pos() * self.div_surface.get_pivot_point(frag_index, face)[0]
+
                 if (itemp+frag_index) % 2:
                     lf_pivot += temp_com * self.div_surface.get_pivot_point(frag_index, face)[1]
                 else:
@@ -227,6 +395,14 @@ class MultiSample(Sample):
                 mf_pivot_point = self.div_surface.get_pivot_point(i, face)
 
                 if frag.molecule_type == MolType.NONLINEAR:
+                    lf_pivot_point = frag.mf2lf(mf_pivot_point)
+                    if i == 1:
+                        lf_com -= lf_pivot_point
+                    else:
+                        lf_com += lf_pivot_point
+
+
+                elif frag.molecule_type == MolType.SLAB:
                     lf_pivot_point = frag.mf2lf(mf_pivot_point)
                     if i == 1:
                         lf_com -= lf_pivot_point

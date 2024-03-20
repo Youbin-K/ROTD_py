@@ -74,7 +74,9 @@ from rotd_py.flux.fluxbase import FluxBase
  flux_base = FluxBase(temp_grid = temperature,
                   energy_grid = energy,
                   angular_grid = angular_mom,
-                 flux_type = 'MICROCANNONICAL',
+
+                 flux_type = 'MICROCANONICAL',
+
                  flux_parameter=flux_parameter)
 
 Then the calculation as a whole will be integrated by \textbf{Multi}. In \textit{Multi}, the communication among the master and slaves are achieved using \textbf{Mpi4py} package. The master is designed to assign work to slaves based on the termination criteria set by the user. An array of \textit{Flux} is maintained such that a simulation with multiple multifaceted dividing surfaces can be executed automatically. After setting up the sample schema and flux parameters, a VRC-TST calculation can be invoked by the following codes:

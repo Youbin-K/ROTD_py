@@ -1,11 +1,22 @@
+
+from abc import ABCMeta, abstractmethod
+
+import os
+import copy
+import numpy as np
+from mpi4py import MPI
+from ase.atoms import Atoms, Atom
+from ase.constraints import FixAtoms
+from ase.io.trajectory import Trajectory
+from ase_modules.calculators.gaussian import Gaussian
+from amp import Amp
+
+import rotd_py
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
-import numpy as np
-from abc import ABCMeta, abstractmethod
-from ase.atoms import Atoms, Atom
-from ase.io.trajectory import Trajectory
-from amp import Amp
-from ase.constraints import FixAtoms
+from rotd_py.molpro.molpro import Molpro
+from rotd_py.sample.correction import Correction
+
 
 
 class Sample(object):
@@ -31,14 +42,23 @@ class Sample(object):
     dof_num : degree of freedom of the reaction system.
     weight : the geometry weight for the generated configuration.
     inf_energy: the energy of the configuration at infinite separation in Hartree
+
+    corrections: Dictionary of the different corrections to be included.
+        Corrections currently implemented:
+            1d - Dictionary that must contain:
+                    scan_ref: indexes in the fragments of the atoms between which scan was computed.
+                    e_sample: 1D energies (kcal) along the dissociation computed at the sampling level.
+                    e_trust: 1D energies (kcal) along the dissociation computed at the highest affordable level.
+                    r_sample: sample level scan distances (Angstrom). Same length as e_sample.
+                    r_trust: trust level scan distances (Angstrom). Same length as e_trust.
     """
 
-    def __init__(self, fragments=None, dividing_surface=None,
-                 min_fragments_distance=1.5, inf_energy=0.0, energy_size=1):
+    def __init__(self, name=None, fragments=None, dividing_surface=None,
+                 min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
+                 corrections=None):
         __metaclass__ = ABCMeta
+        self.name=name
         # list of fragments
-
-        self.surf_level = None
 
         self.fragments = fragments
         if fragments is None or len(fragments) < 2:
@@ -47,11 +67,23 @@ class Sample(object):
         self.div_surface = dividing_surface
         self.close_dist = min_fragments_distance
         self.weight = 0.0
-        self.inf_energy = inf_energy
-        self.energy_size = energy_size
-        self.energies = np.array([0.] * self.energy_size)
+
+        self.inf_energy = inf_energy*rotd_math.Hartree #Convert energy from Hartree to eV
         self.ini_configuration()
         self.set_dof()
+        #Initialise corrections disctionary 
+        self.initialise_corrections(corrections)
+        self.energy_size = energy_size+len(self.corrections.keys())
+        self.energies = np.array([0.] * (self.energy_size))
+
+    def initialise_corrections(self, corrections):
+        "Function that creates correction objects for each correction"
+        self.corrections = {}
+        if corrections == None or not isinstance(corrections, dict):
+            return
+        for correction_name in corrections:
+            self.corrections[correction_name] = Correction(correction_name, corrections[correction_name], self)
+
 
     def get_dividing_surface(self):
         return self.div_surface
@@ -67,47 +99,16 @@ class Sample(object):
         for frag in self.fragments:
             if frag.molecule_type == MolType.MONOATOMIC:
                 continue
+
             elif frag.molecule_type == MolType.SLAB:
                 continue
+
             elif frag.molecule_type == MolType.LINEAR:
                 self.dof_num += 2
             elif frag.molecule_type == MolType.NONLINEAR:
                 self.dof_num += 3
 
     def ini_configuration(self):
-        #Initialize the total system with ASE class Atoms
-        # Random orientation comes after setting this function
-        # ini_config -> generate_config
-        
-        new_atoms = []
-        new_positions = []
-
-        for frag in self.fragments:
-            #print ("initial frag: ", frag) # CO, Pt one by one
-                #frag.translate([0., 0., surf_level])
-                #frag.translate([0.0, 0.0, 30])
-                #print ("IF AND surf_level")
-            new_atoms += frag.get_chemical_symbols()
-            #print ("new_atoms: ", new_atoms)
-            for pos in frag.get_positions():
-                #print ("get_positions", frag.get_positions())
-                #print ("position: ", pos) 
-                #frag.translate([0.0, 0.0, 100])
-                new_positions.append(pos)
-
-        #print ("test", new_positions)
-        self.configuration = Atoms(new_atoms, new_positions)
-        #print ("len config: ", len(self.configuration)) #### Total 38
-        if frag.molecule_type == MolType.SLAB:
-            c = FixAtoms(indices = [atom.index for atom in self.configuration if atom.symbol =='Pt'])
-            self.configuration.set_constraint(c)
-        
-            unit_cell_334_pt = [[8.3, 0.000, 0.000],
-                                [4.15, 7.188, 0.000],
-                                [0.000, 0.000, 26.777]]
-
-            self.configuration.set_cell(unit_cell_334_pt)
-        
 
         """
         new_atoms = []
@@ -117,9 +118,11 @@ class Sample(object):
             for pos in frag.get_positions():
                 new_positions.append(pos)
         self.configuration = Atoms(new_atoms, new_positions)
+
         c = FixAtoms(indices = [atom.index for atom in self.configuration if atom.symbol =='Pt'])
         self.configuration.set_constraint(c) 
         """
+
 
     def get_dof(self):
         """return degree of freedom
@@ -133,6 +136,7 @@ class Sample(object):
         """
         return 2.0 * np.sqrt(2.0 * np.pi)
 
+
     def get_microcanonical_factor(self): #느낌상 Gamma function 부터 ~ prod of sqrt.2pi.I 까지.
         """return microcanonical factor used in the flux calculation
 
@@ -140,23 +144,18 @@ class Sample(object):
         #print ("Getting canonical factor")
         #print ("55555")
         # Called out after run in flux.py
+
         return rotd_math.M_2_SQRTPI * rotd_math.M_SQRT1_2 / 2.0 / \
             rotd_math.gamma_2(self.get_dof() + 1)
 
     def get_ej_factor(self):
         """return e-j resolved ensemble factor used in the flux calculation
-            return 1/pi/Gamma(DOF/2 -1) DOF=nu??
-        """
-        #print ("Get ej factor")
-        #print ("66666")
-        # called out after get_microcanonical_factor
         return rotd_math.M_1_PI / rotd_math.gamma_2(self.get_dof() - 2)
 
     def get_tot_inertia_moments(self):
         """Return the inertia moments for the sampled configuration
 
         """
-        #print ("get MOI")
 
         return self.configuration.get_moments_of_inertia() * \
             rotd_math.mp / rotd_math.Bohr**2
@@ -177,6 +176,7 @@ class Sample(object):
 
         """
         lb_pos_0 = self.fragments[0].get_labframe_positions()
+
         #print ("Is this list? ", lb_pos_0) #This is lf position array of C and O
         #fragments[0] = CO & fragments[1] = Whole Pt
         #print ("len frag 0: ", len(lb_pos_0)) # 2 comes out
@@ -184,12 +184,14 @@ class Sample(object):
         #print ("len frag 1: ", len(lb_pos_1)) # 36 comes out
         #print ("self.fragment[1].get_lf_position", lb_pos_1)
         # This gets the position of whole 36 atoms of Pt
+
         for i in range(0, len(lb_pos_0)):
             for j in range(0, len(lb_pos_1)):
                 dist = np.linalg.norm(lb_pos_0[i] - lb_pos_1[j])
                 if dist < self.close_dist:
                     return True
         return False
+
 
     """ 
     def if_slab_and_molecule_too_far(self):
@@ -312,6 +314,7 @@ class Sample(object):
             return True
         return False
 
+
     @abstractmethod
     def generate_configuration(self):
         """This function is an abstract method for generating random
@@ -323,12 +326,124 @@ class Sample(object):
         """
         pass
 
-    def get_energies(self, calculator):
+
+    def get_energies(self, calculator, face_id=0, flux_id=0):
+
 
         # return absolute energy in e
         # This is a temporary fix specific for using Amp calculator as we are not able to
         # either 1) deepcopy the Amp calculator object or 2) using MPI send/receive Amp calculator object
         # Note: this may cause some performance issue as we need to load Amp calculator for each calculation.
+
+        label = f'surf{self.div_surface.surf_id}_face{face_id}_samp{flux_id}'
+
+        if os.path.isfile(f"{label}.rslt"):
+            with open(f'{label}.rslt', 'r') as f:
+                lines = f.readlines()
+            try:
+                energy = float(lines[0].split()[1])
+                self.weight = float(lines[1].split()[1])
+                elements = ""
+                geom = self.configuration.positions
+                for index, line in enumerate(lines[4:]):
+                    elements += line.split()[0]
+                    geom[index][0] = float(line.split()[1])
+                    geom[index][1] = float(line.split()[2])
+                    geom[index][2] = float(line.split()[3])
+                self.configuration.symbols = elements
+                self.configuration.positions = geom
+            except:
+                energy = None
+
+        elif calculator['code'][-3:].casefold() == 'amp':
+            amp_calc = Amp.load(f"../../{calculator['code']}")
+            self.configuration.set_calculator(amp_calc)
+            energy = self.configuration.get_potential_energy()
+            self.configuration.set_calculator(None)
+        elif calculator['code'].casefold() == 'molpro':
+            
+            mp = Molpro(label, self.configuration, calculator.copy())
+            
+            mp.create_input()
+            mp.run()
+            energy = mp.read_energy()
+        elif calculator['code'].casefold() == "gaussian":
+            new_calc = copy.deepcopy(calculator)
+            #Verify the gaussian calculator
+            new_calc['label'] = label
+            #Add minimum requirement
+            if 'chk' not in new_calc:
+                new_calc['chk'] = label
+            if 'xc' not in new_calc:
+                new_calc['xc'] = 'uwb97xd'
+            if 'basis' not in new_calc:
+                new_calc['basis'] = 'cc-vdz'
+            if 'mem' not in new_calc:
+                new_calc['mem'] = '500MW'
+            else:
+                if isinstance(new_calc['mem'], int):
+                    new_calc['mem'] = f"{new_calc['mem']}MW"
+            if 'nprocshared' not in new_calc:
+                calculator['nprocshared'] = new_calc['processors']
+            if 'scf' not in new_calc:
+                new_calc['scf'] = 'xqc'
+            if 'command' not in new_calc:
+                new_calc['command'] = 'GAUSSIAN < PREFIX.com > PREFIX.log'
+
+            #Clear the calculator of useless keywords
+            for key in ['code', 'scratch', 'processors', 'queue', 'max_jobs']:
+                if key in new_calc:
+                    new_calc.pop(key, None)
+
+            for correction in self.corrections.values():
+                if correction.type == "counterpoise":
+                    new_calc['fragment1'] = f"{correction.fragments_indexes[0]};{correction.fragment1_charge};{correction.fragment1_mult}"
+                    new_calc['fragment2'] = f"{correction.fragments_indexes[1]};{correction.fragment2_charge};{correction.fragment2_mult}"
+                    break
+            calc = Gaussian(**new_calc)
+
+            self.configuration.calc = calc
+            energy = self.configuration.get_potential_energy()
+        
+        #Needs to be separated to recover correct energy if CP correction is used.
+        if calculator['code'].casefold() == "gaussian":
+            for correction in self.corrections.values():
+                if correction.type == "counterpoise":
+                    with open(f'{label}.log', 'r') as f:
+                        lines = f.readlines()
+                    for line in lines:
+                        if "SCF Done" in line:
+                            energy = float(line.split()[4])*rotd_math.Hartree
+                            break
+
+        #Counting failed samples
+        if energy is None:
+            return None
+        
+        content = f"Energy: {energy} eV"
+        content += "\n"
+        content += f"Weight: {self.weight}"
+        content += "\n"
+        content += "\nGeometry:\n"
+        for index, line in enumerate(self.configuration.positions):
+            content += "{:5s} {:10.5f} {:10.5f} {:10.5f}\n".format(self.configuration.symbols[index],\
+                                                                           line[0],\
+                                                                           line[1],\
+                                                                           line[2])
+            
+        with open(f'{label}.rslt', 'w') as f:
+            f.write(content)
+
+        #Energies must be in eV
+        energy_index = 0
+        self.energies[energy_index] = (energy - self.inf_energy)/rotd_math.Hartree
+        for correction in self.corrections.values():
+            energy_index += 1
+            self.energies[energy_index] = (energy + correction.energy(configuration=self.configuration) - self.inf_energy)/rotd_math.Hartree
+            
+
+        '''
+        기존 내버전의 코드
         amp_calc = Amp.load(calculator)
         self.configuration.set_calculator(amp_calc)
         e = self.configuration.get_potential_energy()
@@ -336,6 +451,8 @@ class Sample(object):
         # TODO: need to fill the energy correction part
 
         self.energies[0] = e / rotd_math.Hartree - self.inf_energy
+        '''
+
         return self.energies
 
 

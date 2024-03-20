@@ -1,13 +1,17 @@
 import numpy as np
 from enum import Enum
+
 from ase import Atoms, units
+
 
 
 class MolType(Enum):
     MONOATOMIC = 1
     LINEAR = 2
     NONLINEAR = 3
+
     SLAB = 4
+
 
 
 class SampTag(Enum):
@@ -58,12 +62,23 @@ class Surface(object):
 
         self.pivotpoints = pivotpoints
         self.distances = distances
+
+        self.num_pivot_points = [len(self.pivotpoints[f'{i}'])
+
+        '''
+        original version
         self.num_pivot_points = [len(self.pivotpoints[str(i)])
-                                 for i in range(0, len(self.pivotpoints))]
-        self.num_faces = 1
+        '''
+
+        for i in range(0, len(self.pivotpoints))]
+            self.num_faces = 1
         for i in range(0, len(self.num_pivot_points)):
             self.num_faces *= self.num_pivot_points[i]
         self._curr_face = 0
+
+        self.pot_var = np.inf
+        self.vol_var = np.inf
+
 
     def get_num_faces(self):
         """Return the total number of facets for this system. """
@@ -74,6 +89,7 @@ class Surface(object):
         if face < 0 or face >= self.num_faces:
             raise ValueError("Invalid face index")
 
+
         #print ("face = ", face) # 0, 1, 2, 3
         #print ("num_pivot = ", self.num_pivot_points) # [2,2] is the output
         #print ("[0] num_pivot = ", self.num_pivot_points[0]) # 2 is the output
@@ -81,6 +97,7 @@ class Surface(object):
         i = face % self.num_pivot_points[0]  # face / num_pivot, 나머지 반환 e.g. 7%2 = 1
         j = face // self.num_pivot_points[0] # face / num_pivot, 몫 반환 e.g. 7//2 = 3
         return i, j #2 로 나누기 때문에 0 or 1
+
 
     def dist(self, i, j):
         """Return the distance between the i-th pivot point of fragment 1 and
@@ -108,6 +125,7 @@ class Surface(object):
         """
 
         i, j = self.pivot_index(face)
+
         #print("pivot i = ",i)
         #print("pivot j = ",j) # 위의 pivot_index 에서 가져오기 때문에 이것도 0 or 1
         if frag_index == 0:
@@ -116,4 +134,5 @@ class Surface(object):
         else:
             #print ("else")
             return self.pivotpoints['1'][j]
+
 

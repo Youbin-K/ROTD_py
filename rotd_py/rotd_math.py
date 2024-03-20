@@ -21,37 +21,38 @@ M_SQRT2 = np.sqrt(2.0)
 M_SQRT1_2 = 1.0/np.sqrt(2.0)
 M_SQRTPI = np.sqrt(np.pi)
 # convert Kelv to Hartree
-# A * Kelv = Kelv
+
 Kelv = units.kB/units.Hartree
-
 # convert Kcal to Hartree
-# A * Kcal = Hartree
 Kcal = units.kcal/units.mol/units.Hartree
-
 # convert angstrom to Bohr
 Bohr = units.Bohr
-
-# convert eV to Hartree, used in sample.py, def get_energies
-# A * Hartree = eV
-# A / Hartree = Hartree
+# convert eV to Hartree
 Hartree = units.Hartree
+# convert Hartree to cm-1
+Hartree2cm = 219474.63
 
 # mass of  proton in amu
 mp = 1.672621898e-27/9.10938356e-31
 # Adopt from original Varecof convert the number of states to rate constant with unit
 # of 10^11 cm^3/sec
-ff = 612.6
+
+conv_fac = 612.6
+
 
 # def any useful function for calculation under below:
+
 
 
 def gamma_2(n): #Gamma function =Gamma(n/2) 
     if n == 1:
         return M_SQRTPI # = np.sqrt(np.pi)
+
     elif n == 2:
         return 1.0
     elif n > 2:
         return (n-2.0)/2.0 * gamma_2(n-2)
+
 
     return 0 # n>2 일땐 자기 혼자 돔 + return 0은 값이 음수거나, 0일때.
 
@@ -83,7 +84,11 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
     if kin_en <= 0.:
         return 0
 
+  #Sandia_molpro
+  #  if iner_mom[0] < 0.:
+  # Xi version 
     if iner_mom[0] <= 0.:
+
         raise ValueError("mc_stat_weight: inertia moments are not positive")
     if iner_mom[0] > iner_mom[1] or iner_mom[1] > iner_mom[2]:
         raise ValueError("mc_stat_weight: inertia moments are not monotonic")
@@ -92,11 +97,13 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
     global_rot_en = np.zeros(3)
     for i in range(0, 3):
         global_rot_en[i] = ang_mom**2 / (2. * iner_mom[i] * kin_en)
+
     if global_rot_en[2] >= 1. - eps: # Why?
         return 0
     en_fac = np.power(kin_en, global_pow_num/2) #kin_en^ (nu/2-2) ## Here, kin_en = E-V_q
 
     if global_pow_num % 2: #global_pow_num = DOF-4
+
         en_fac *= np.sqrt(kin_en)
 
     def theta_integral(a, b, n):
@@ -104,7 +111,9 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
         if a <= 0:
             return 0
         if b < eps*a:
-            res = np.power(a, n/2) 
+
+            res = np.power(a, n/2)
+
             if n % 2:
                 res *= np.sqrt(a)
             return res
@@ -134,7 +143,9 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
 
         return res/float(n+1)
 
+
     def phi_integrand(y): #mc_stat_weight 안에 들어있음
+
         y2 = y**2
         y1 = 1.0-y2
         r = np.zeros(2)
@@ -142,6 +153,7 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
         r[1] = global_rot_en[1] * y2 + global_rot_en[2] * y1
 
         res = 0
+
         for i in range(0, 2): #아마도 phi sqrt안에 있는 거 같은데.. 
             res += theta_integral(1.0 - r[i], global_rot_en[0]-r[i], global_pow_num)
         return res/np.sqrt(y1) # y 가 define이 안됐는데 어떻게 나오는거지??????????
@@ -151,6 +163,7 @@ def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):
         res, err = quad(phi_integrand, 0., M_SQRT1_2) # Quad 는 phi_integrand를 0 에서 M_sqrt1_2까지 적분. M_sqrt1_2 = 1/루트 2. phi_integrand = 
     else:
         dtemp = (1. - global_rot_en[2]) / (global_rot_en[1] - global_rot_en[2]) #dtemp = 꺽쇠 오메가 J 적분 범위
+
         if dtemp <= 0.5:
             y_max = np.sqrt(dtemp)
             res, err = quad(phi_integrand, 0., y_max)
@@ -206,6 +219,7 @@ def random_orient(dimes):
 """
 
 
+
 def orthogonalize(vector, n):
     """Return a vector that orthogonal to n and in the same plane with vector
     CAUTION: make the change to vector directly
@@ -223,13 +237,11 @@ def normalize(vector):
     """
     norm = np.sqrt(sum(vector**2))
     if norm == 0:
-        #print ("norm ==0 ", norm)
-        #print ("vector ", vector)
+
         return norm
     else:
-        #print ("vector in else ", vector)
         vector /= norm
-        #print ("norm not 0, vector /= norm ", vector)
+
     return norm
 
 

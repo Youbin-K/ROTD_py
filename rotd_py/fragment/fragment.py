@@ -6,15 +6,17 @@ from rotd_py.system import MolType
 
 
 class Fragment(Atoms):
-    """Fragment Class used for describing the fragment
+
+    """Fragment Class is used for describing the fragment
     Fragment could be atom, molecule or even a slab.
-    This is a class inherits from the atoms object in ASE.
-    It can be initialized by the element and position of them of the molecule,
+    This is a class which inherits from the atoms object in Atomistic Simulation Environement (ASE).
+    It can be initialized by the element and position of the molecule,
     and all other information related to the molecule can be either initialized
-    or calculated. Users are referred to the Atoms in ASE for more details.
+    or calculated. Users are referred to see the "Atoms" in ASE for more details.
 
     uniqe parameters for rotd_py:
-    mol_type: the geometry information of the fragment, it could be NONATOMIC,
+    mol_type: the geometric information of the fragment, it could be NONATOMIC,
+
              LINEAR, and NONLINEAR
     mol_frame_positions: the molecule positions used as a reference for
                         rotating the molecule, with the unit of Bohr
@@ -47,17 +49,17 @@ class Fragment(Atoms):
                        scaled_positions, cell, pbc, celldisp,
                        constraint, calculator, info)
         self.frag_array = {}
-        #print ("Hi I'm frag_array", self.frag_array)
+
 
         self.set_molframe_positions()
-        print ("setting_ mf pos from frag.py init")
+
         self.set_molecule_type()
         self.init_dynamic_variable()
 
     @property
     def molecule_type(self):
         """Get the molecule type"""
-        print ("The molecule type is:", self.frag_array['mol_type'])
+
         return self.frag_array['mol_type']
 
     @abstractmethod
@@ -68,37 +70,34 @@ class Fragment(Atoms):
         """
 
     def get_total_mass(self):
-        """Return the total masses of the molecule, in atomic units """
-        print ("BEEP! getting total_mass")
+
+        """Return the total mass of the molecule, in atomic units """
+
         return sum(self.get_masses()) * rotd_math.mp
 
     def get_stat_sum(self):
         """Return the parameters for calculating number of states. """
-        print ("Hi I'm get_stat_sum")
+
         return self.frag_array['stat_sum']
 
     def get_molframe_positions(self):
-        """The molecule frame position of the molecule
-        set at the initialization and never change during the run
+        """The molecule frame position of the molecule,
+        set at the initialization and NEVER change during the run
 
         """
-        print ("get mf pos from frag.py")
-        #print ("99999") 
         return self.frag_array['mol_frame_positions'].copy()
 
     def get_relative_positions(self):
-        """Return the positions that relative to center of mass. """
-        #print ("22222")
-        # Called out same time as below function, set_molframe_position
-        #print ("getting relative position")
+        """Return the positions that are relative to center of mass. """
         com = self.get_center_of_mass()
-        print ("getting COM from def (get_rel_pos) in frag.py")
+
         positions = self.get_positions()
         positions -= com
 
         return positions
 
     def set_molframe_positions(self):
+
         #print ("11111")
         #This is called out only in the beginning.
 
@@ -109,7 +108,7 @@ class Fragment(Atoms):
         
         """
 
-        print ("setting molframe_position")
+        #print ("setting molframe_position")
         
         rel_pos = self.get_relative_positions() / rotd_math.Bohr
         masses = self.get_masses() * rotd_math.mp
@@ -140,36 +139,32 @@ class Fragment(Atoms):
         self.frag_array['orig_mfo'] = evecs
         self.frag_array['mol_frame_positions'] = np.dot(rel_pos, evecs)
 
-        print ("I've set the mol_frame_pos for you baby")
 
     # all the following are dynamic variable related to on-the-fly sampling
     def init_dynamic_variable(self):
         """Initialize the dynamic variable related to rotating the molecule. """
-        #self.frag_array['lab_frame_positions'] = np.zeros((self.get_number_of_atoms(), 3))
+
         self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3))
         self.frag_array['lab_frame_COM'] = np.zeros(3)
         self.frag_array['orient_vector'] = np.zeros(self.get_ang_size())
         self.frag_array['mfo'] = np.zeros((3, 3))
-        print ("init_dynamic_variable")
 
     def set_ang_pos(self, orient_vec):
         """Set up the rotation vector (random generated) for the molecule.
 
         """
-        print("I'm setting the angle_position")
 
         if len(orient_vec) != len(self.frag_array['orient_vector']):
             raise ValueError("Orientation vector dimension does not fit")
         for i in range(0, len(orient_vec)):
             self.frag_array['orient_vector'][i] = orient_vec[i]
-        
 
     def set_labframe_com(self, new_com):
         """Set up the center of mass positions of the fragment in the lab frame
         after getting the rotation vector between the two fragments.
 
         """
-        print ("Set the labframe_COM")
+
         if any(item is None for item in new_com) or len(new_com) != 3:
             raise ValueError('Wrong dimension of position')
         for i in range(0, len(new_com)):
@@ -190,11 +185,13 @@ class Fragment(Atoms):
     def get_labframe_positions(self):
         return self.frag_array['lab_frame_positions'].copy()
 
-    # The following functions are related to the type of molecule, so they are
-    # defined separately under each molecular type.
+
+    # The following functions are related to the type of molecule, 
+    # so they are defined separately under each molecular type.
     @abstractmethod
     def set_rotation_matrix(self):
-        """Set up the mfo (molecule frame rotation )
+        """Set up the mfo (molecule frame rotation)
+
         matrix after generating the rotation vector for the fragment
 
         """
@@ -203,14 +200,16 @@ class Fragment(Atoms):
     @abstractmethod
     def set_labframe_positions(self):
         """Update the lab frame positions of fragment after rotation.
-            labframe_pos = lab_com + np.dot(molframe_pos, rotation_matrix)
+           labframe_pos = lab_com + np.dot(molframe_pos, rotation_matrix)
+
 
         """
         pass
 
     @abstractmethod
     def lf2mf(self, lf_vector):
-        """Convert the input vector to molecule frame.
+
+        """Convert the input vector(lab frame vector) to molecule frame.
 
         """
 
@@ -218,14 +217,18 @@ class Fragment(Atoms):
 
     @abstractmethod
     def mf2lf(self, mf_vector):
-        """Convert the input vector to laboratory frame.
+
+        """Convert the input vector(molecule frame vector) to laboratory frame.
+
 
         """
         pass
 
     @abstractmethod
     def get_labframe_imm(self, i, j):
-        """return the [i][j] value in the inertia moment matrix in lab frame
+
+        """return the [i][j] value in the moments of inertia matrix in lab frame value
+
         """
         pass
 

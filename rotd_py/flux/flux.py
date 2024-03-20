@@ -5,6 +5,14 @@ import rotd_py.rotd_math as rotd_math
 from rotd_py.flux.fluxbase import FluxBase
 import copy
 import os
+
+import shutil
+min_flux = 1e-99
+# CAUTION! all units are atomic unit
+
+import logging
+
+
 from ase.io.trajectory import Trajectory
 min_flux = 1e-99
 # CAUTION! all units are atomic unit
@@ -21,8 +29,11 @@ class MultiFlux:
     determines the dimension of MultiFlux
 
     """
-    print ("Welcome to multi-flux")
-    def __init__(self, fluxbase=None, num_faces=1, sample=None, calculator=None):
+
+
+    def __init__(self, fluxbase=None, num_faces=1, selected_faces=None, sample=None,
+                 calculator=None):
+
 
         if fluxbase is None:
             raise ValueError("The flux base cannot be NONE, the information\
@@ -34,11 +45,19 @@ class MultiFlux:
         self.pot_max = fluxbase.pot_max()
         self.tot_max = fluxbase.tot_max()
 
+        self.selected_faces = selected_faces
+        self.energy_size = sample.energy_size
+        self.sample = copy.deepcopy(sample)
+
+        self.converged = False
+
+
         # initialize each flux to the corespondent facet.
         # convert the energy unit to Hartree
         for i in range(num_faces):
-            self.flux_array[i] = Flux(temp_grid=fluxbase.temp_grid * rotd_math.Kelv, # in units of Kelv.
-                                      energy_grid=fluxbase.energy_grid * rotd_math.Kelv, # in units of Kelv.
+            self.flux_array[i] = Flux(temp_grid=fluxbase.temp_grid * rotd_math.Kelv,
+                                      energy_grid=fluxbase.energy_grid * rotd_math.Kelv,
+
                                       angular_grid=fluxbase.angular_grid,
                                       flux_type=fluxbase.flux_type,
                                       flux_parameter=fluxbase._flux_parameter,
@@ -46,6 +65,8 @@ class MultiFlux:
                                       calculator=calculator
                                       )
             self.flux_array[i].sample.div_surface.set_face(i)
+
+        self.logger = logging.getLogger('rotdpy')
 
     def check_state(self):
         """check whether the calculation for this dividing surface has converged
@@ -58,35 +79,40 @@ class MultiFlux:
             [FluxTag, int]
 
         """
-        #print ("check converged dividsurf")
-        #print ("##########################")
-        # Called out 
-        for i in range(0, self.num_faces):
+
+        #for i in range(0, self.num_faces):
+        for i in self.selected_faces:  # HACKED !!!
+
             if self.flux_array[i].acct_smp() >= self.flux_array[i].pot_min():
                 continue
             else:
                 return FluxTag.FLUX_TAG, i
 
         # estimate the error
-        min_val = float('inf')
+
+        min_val = np.inf
         min_index = 0
 
-        # find the minimum thermal flux
+        # find the minimum thermal flux among all faces and for each corrected flux
         for t_ind in range(0, len(self.temp_grid)):
-            val = 0.
-            for i in range(0, self.num_faces):
-                val += self.flux_array[i].average(t_ind, 0)
-            if val < min_val:
-                min_val = val
+            val = np.zeros(self.energy_size)
+            # val = 0.
+            #for i in range(0, self.num_faces):
+            for i in self.selected_faces:  # HACKED !!!
+                val += self.flux_array[i].average(t_ind, self.energy_size-1)
+            if any(val) < min_val:
+                min_val = np.min(val)
                 min_index = t_ind
+                energy_index = np.where(val==min(val))[0][0]
 
         # total potential variance
         tot_pot_var = 0.0
-        for i in range(0, self.num_faces):
-            tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, 0)
+        for i in self.selected_faces:  # HACKED !!!
+            tot_pot_var += self.flux_array[i].pot_fluctuation(min_index, energy_index)
 
         # projected number of samplings
-        proj_smp_num = 0.
+        proj_smp_num = 0.0
+
         if min_val > 1.0e-99:
             proj_smp_num = 10000. * tot_pot_var**2 / min_val**2 / self.tol**2
             if proj_smp_num > self.pot_max:
@@ -95,9 +121,11 @@ class MultiFlux:
         if proj_smp_num > 1.:
             max_smp = -1
             face = 0
-            for i in range(0, self.num_faces):
+
+            for i in self.selected_faces:  # HACKED !!!
                 smp = proj_smp_num * \
-                    self.flux_array[i].pot_fluctuation(min_index, 0) / tot_pot_var
+                    self.flux_array[i].pot_fluctuation(min_index, energy_index) / tot_pot_var
+
                 if smp <= 1.:
                     smp = -1
                 else:
@@ -111,8 +139,12 @@ class MultiFlux:
         # estimate the surface area sampling error
         proj_smp_num = 0.
         tot_vol_var = 0.
-        for i in range(0, self.num_faces):
-            tot_vol_var += self.flux_array[i].vol_fluctuation(min_index, 0)
+
+        #for i in range(0, self.num_faces):
+        for i in self.selected_faces:  # HACKED !!!
+            tot_vol_var += self.flux_array[i].vol_fluctuation(min_index, energy_index)
+        # self.sample.div_surface.vol_var = tot_vol_var
+
 
         # projected number of sampling
         if min_val > 1.0e-99:
@@ -125,9 +157,12 @@ class MultiFlux:
 
         # check whether surface sampling is needed or not
         is_surf_smp = False
-        smp_num = np.zeros(self.num_faces)
-        for i in range(0, self.num_faces):
-            smp = proj_smp_num * self.flux_array[i].vol_fluctuation(min_index, 0)\
+
+        smp_num = np.zeros(self.num_faces)#, dtype=int)
+        #for i in range(0, self.num_faces):
+        for i in self.selected_faces:  # HACKED !!!
+            smp = proj_smp_num * self.flux_array[i].vol_fluctuation(min_index, energy_index)\
+
                 / tot_vol_var - self.flux_array[i].tot_smp()
             if smp > 0:
                 is_surf_smp = True
@@ -145,14 +180,26 @@ class MultiFlux:
         converged
         sid is the index of current dividing surface
         """
-        #print ("Saving files")
+
+        current_path = os.getcwd()
+        # commented out, because it deleted all other surface_n files
+        # try:
+        #     shutil.rmtree(current_path + "/" + "output")
+        # except FileNotFoundError:
+        #     pass
+        try:
+            os.mkdir(current_path + "/" + "output")
+        except FileExistsError:
+            pass
         filename = "surface_"+str(sid)+".dat"
         if os.path.exists(filename):
-            print("The file  %s is already exists, REWRITE it!" % (filename))
-        f = open(filename, 'w')
+            self.logger.info("The file  %s is already exists, REWRITE it!" % (filename))
+        f = open("output" + "/" + filename, 'w')
 
         symbols = self.flux_array[0].sample.configuration.get_chemical_symbols()
-        for face in range(self.num_faces):
+        #for face in range(self.num_faces):
+        for face in self.selected_faces:  # HACKED !!!
+
             f.write("Face: %d\n" % (face))
             curr_flux = self.flux_array[face]
             f.write("Successful sampling: %d \n" % (curr_flux.acct_smp()))
@@ -161,33 +208,54 @@ class MultiFlux:
             f.write("Out of face sampling: %d \n" % (curr_flux.face_smp()))
             f.write("Dummy sampling: %d \n" % (curr_flux.fake_smp()))
             # here out put unit with kcal/mol
-            f.write("Minimum energy: %.5f kcal/mol \n" % (curr_flux.min_energy[0]/rotd_math.Kcal))
-            f.write("Minimum energy: %.5f eV \n" % (curr_flux.min_energy[0]*rotd_math.Hartree))
+
+            f.write("Minimum energy: %.5f" % (curr_flux.min_energy[0]/rotd_math.Kcal))
+            for corrected_e in range(1, len(curr_flux.min_energy)):
+                f.write("   %.5f" % (curr_flux.min_energy[corrected_e]/rotd_math.Kcal))
+            f.write("\n")
             f.write("Minimum energy geometry:\n")
-            for i in range(0, len(curr_flux.min_geometry[0])):
-                item = curr_flux.min_geometry[0][i]
-                f.write("%5s %16.8f %16.8f %16.8f\n" % (symbols[i], item[0], item[1], item[2]))
+            for line in range(0, len(curr_flux.min_geometry[0])):
+                f.write("%5s" % (symbols[line]))
+                for correction_index in range(len(curr_flux.min_geometry)):
+                    item = curr_flux.min_geometry[correction_index][line]
+                    f.write(" %16.8f %16.8f %16.8f |" % (item[0], item[1], item[2]))
+                f.write("\n")
 
             # now normalize the calculated results
-            curr_flux.normalize()
+            normalized_face_flux = curr_flux.normalize()
             # the Canonical:
             f.write("Canonical: \n")
-            for i in range(0, len(curr_flux.temp_grid)):
-                line = "%-16.3f  " % (curr_flux.temp_grid[i]/rotd_math.Kelv) # in units of Hartree
-                line += " ".join(format(x, ".3e") for x in curr_flux.temp_sum[i, :])
+            f.write("%-16s %14s" % ("Temperature (K)", "Uncorrected"))
+            for correction_name in normalized_face_flux.sample.corrections.keys():
+                f.write(" %14s" % (correction_name))
+            f.write("\n")
+            for this_temp in range(0, len(normalized_face_flux.temp_grid)):
+                line = "%-16.3f  " % (normalized_face_flux.temp_grid[this_temp]/rotd_math.Kelv)
+                for x in normalized_face_flux.temp_sum[this_temp]:
+                    line += " %14.3e" % (x)
                 f.write(line + '\n')
             # the Micro-canonical:
             f.write("Microcanonical: \n")
-            for i in range(0, len(curr_flux.energy_grid)):
-                line = "%-16.3f" % (curr_flux.energy_grid[i]/rotd_math.Kelv) # in units of Hartree
-                line += " ".join(format(x, ".3e") for x in curr_flux.e_sum[i, :])
+            f.write("%-16s %14s" % ("Energy (K)", "Uncorrected"))
+            for correction_name in normalized_face_flux.sample.corrections.keys():
+                f.write(" %14s" % (correction_name))
+            f.write("\n")
+            for this_energy in range(0, len(normalized_face_flux.energy_grid)):
+                line = "%-16.3f" % (normalized_face_flux.energy_grid[this_energy]/rotd_math.Kelv)
+                for x in normalized_face_flux.e_sum[this_energy]:
+                    line += " %14.3e" % (x)
                 f.write(line + '\n')
-            #print ("1st, curr_flux.e_sum: ", curr_flux.e_sum) # This is never printed in slurm. Probably written in the output file.
 
             f.write("E-J resolved: \n")
-            for j in range(0, len(curr_flux.angular_grid)):
-                for i in range(0, len(curr_flux.energy_grid)):
-                    line = " ".join(format(x, ".3e") for x in curr_flux.ej_sum[i, j, :])
+            f.write("%-16s %14s" % ("[J, E]", "Uncorrected"))
+            for correction_name in normalized_face_flux.sample.corrections.keys():
+                f.write(" %14s" % (correction_name))
+            f.write("\n")
+            for this_energy in range(0, len(normalized_face_flux.energy_grid)):
+                for this_J in range(0, len(normalized_face_flux.angular_grid)):
+                    line = "%-7.3e %7.3e" % (normalized_face_flux.angular_grid[this_J], normalized_face_flux.energy_grid[this_energy]/rotd_math.Kelv)
+                    for x in normalized_face_flux.ej_sum[this_energy, this_J]:
+                        line += " %14.3e" % (x)
                     f.write(line + '\n')
 
         f.close()
@@ -230,6 +298,8 @@ class Flux(FluxBase):
                                    flux_parameter=flux_parameter)
         self.sample = sample
         self.calculator = calculator
+
+        self.job_id = None
         self.energy_size = sample.energy_size
 
         self.set_calculation()
@@ -238,11 +308,10 @@ class Flux(FluxBase):
         self.min_energy = [float('inf')] * self.energy_size
         self.min_geometry = [None] * self.energy_size
 
+        self.logger = logging.getLogger('rotdpy')
+
     def set_calculation(self):
-        #print ("33333")
-        # Calculations are set based on the number of set_molframe_position & get_relative_position
-        
-        #print ("Setting the calculator for flux calculation")
+
         # The input grid used for flux calculation
         # initialize the variable used for canonical flux
         self.temp_sum = np.zeros((len(self.temp_grid), self.energy_size))
@@ -252,7 +321,6 @@ class Flux(FluxBase):
 
         # initialize the variable used for microcanonical flux
         self.e_sum = np.zeros((len(self.energy_grid), self.energy_size))
-        #print ("e_sum in set_calculation, zeros: ", self.e_sum ) #This really just prints whole array of zeros
 
         self.e_var = np.zeros((len(self.energy_grid), self.energy_size))
 
@@ -276,8 +344,7 @@ class Flux(FluxBase):
 
     def is_pot(self):
         # test function to see whether can start flux normalization
-        #print ("is_pot 111111111")
-        print ("Testing to see if we can normalize the flux")
+
         if not self.tot_smp():
             raise ValueError("NO Sampling Found!")
         if not self.pot_smp():
@@ -289,52 +356,55 @@ class Flux(FluxBase):
     def normalize(self):
         """This function is used to normalize everything
         """
-        print ("Initialize normalizing")
+
         if not self.acct_smp():
             return
         # TODO: figure out why
-        #print ("flux.py normalizinggggg")
+        normalized_flux = copy.deepcopy(self)
+
         samp_factor = float(self.pot_smp())/self.tot_smp()/self.acct_smp()
 
         fluct_factor = 1.0/self.acct_smp() + 1.0/self.tot_smp() - 1.0/self.pot_smp()
 
         # dealing with the thermal flux in total
-        self.temp_sum *= samp_factor
-        self.temp_var[np.where(self.temp_sum < min_flux)] = 0.0
-        t = self.temp_var * samp_factor**2 - self.temp_sum**2 * fluct_factor
-        self.temp_var[np.where(t <= 0.)] = 0.0
+
+        normalized_flux.temp_sum *= samp_factor
+        normalized_flux.temp_var[np.where(normalized_flux.temp_sum < min_flux)] = 0.0
+        t = normalized_flux.temp_var * samp_factor**2 - normalized_flux.temp_sum**2 * fluct_factor
+        normalized_flux.temp_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.temp_var[index] = np.sqrt(t[index])/self.temp_sum[index] * 100.0
+        normalized_flux.temp_var[index] = np.sqrt(t[index])/normalized_flux.temp_sum[index] * 100.0
 
         # microcanonical
-        self.e_sum *= samp_factor
-        #print ("microcanonical e_sum with samp_fact in normalize: ", self.e_sum) #added values of array are printed. This is same as last one of the self.e_sum "dtemp"
-
-        self.e_var[np.where(self.e_sum < min_flux)] = 0.0 ## 이거 뭐하는거???????????
-        t = self.e_var * samp_factor**2 - self.e_sum**2 * fluct_factor
-        self.e_var[np.where(t <= 0.)] = 0.0
+        normalized_flux.e_sum *= samp_factor
+        normalized_flux.e_var[np.where(normalized_flux.e_sum < min_flux)] = 0.0
+        t = normalized_flux.e_var * samp_factor**2 - normalized_flux.e_sum**2 * fluct_factor
+        normalized_flux.e_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.e_var[index] = np.sqrt(t[index])/self.e_sum[index] * 100.0
+        normalized_flux.e_var[index] = np.sqrt(t[index])/normalized_flux.e_sum[index] * 100.0
 
         # e-j resolved
-        self.ej_sum *= samp_factor
-        #print ("ej_sum with samp_fact in normalize: ", self.ej_sum) # Empty arrays are printed
-
-        self.ej_var[np.where(self.ej_sum < min_flux)] = 0.0
-        t = self.ej_var * samp_factor**2 - self.ej_sum**2 * fluct_factor
-        self.ej_var[np.where(t <= 0.)] = 0.0
+        normalized_flux.ej_sum *= samp_factor
+        normalized_flux.ej_var[np.where(normalized_flux.ej_sum < min_flux)] = 0.0
+        t = normalized_flux.ej_var * samp_factor**2 - normalized_flux.ej_sum**2 * fluct_factor
+        normalized_flux.ej_var[np.where(t <= 0.)] = 0.0
         index = np.where(t > 0.)
-        self.ej_var[index] = np.sqrt(t[index])/self.ej_sum[index] * 100.0
+        normalized_flux.ej_var[index] = np.sqrt(t[index])/normalized_flux.ej_sum[index] * 100.0
+
+        return normalized_flux
 
     def check_index(self, i, j):
-        """Check the validation of energy index i and temperature index j
+        """Check the validation of temperature index i and energy index j
         i: temperature index
-        j: energy index
+        j: energy (correction) index
+
         """
 
         if i < 0 or i > len(self.temp_grid):
             raise ValueError("INVALID Temperature")
-        if j < 0 or j >= len(self.energy_grid):
+
+        if j < 0 or j >= self.energy_size:
+
             raise ValueError("INVALID Energy")
 
         if not self.is_pot():
@@ -343,17 +413,20 @@ class Flux(FluxBase):
             return True
 
     def average(self, i, j):
-        """Calculate the flux average at energy index i and temperature index j
+
+        """Calculate the flux average at temperature index i and energy index j
         i: temperature index
-        j: energy index
+        j: energy (correction) index
+
         """
         if not self.check_index(i, j):
             return 0
 
-        ave = self.temp_sum[i, j]/float(self.acct_smp()) *\
+
+        # ave = self.temp_sum[i, j]/float(self.acct_smp()) *\
+        ave = self.temp_sum[i]/float(self.acct_smp()) *\
             self.pot_smp()/self.tot_smp()
 
-        #print ("flux.py def average, tot_smp")
         # This factor: pot_smp/tot_smp is mentioned in this paper
         # Georgievskii, Yuri, and Stephen J. Klippenstein. "
         # The Journal of Physical Chemistry A 107.46 (2003): 9776-9781.
@@ -367,8 +440,10 @@ class Flux(FluxBase):
 
         temp = self.temp_sum[temp_index, j]/float(self.acct_smp())
 
-        fluc = np.sqrt(self.temp_var[temp_index, j]/float(self.acct_smp()) -
-                       np.power(temp, 2)) * self.pot_smp()/self.tot_smp()
+
+        fluc = np.sqrt(float(self.temp_var[temp_index, j])/float(self.acct_smp()) -
+                       float(np.power(temp, 2))) * float(self.pot_smp())/float(self.tot_smp())
+
         return fluc
 
     def vol_fluctuation(self, i, j):
@@ -377,13 +452,18 @@ class Flux(FluxBase):
             return 0
 
         fluc = self.temp_sum[i, j]/float(self.acct_smp()) * \
-            np.sqrt(self.space_smp()*self.pot_smp()) / self.tot_smp()
+
+            np.sqrt(float(self.space_smp())*float(self.pot_smp())) / self.tot_smp()
+
 
         return fluc
 
     def run_surf(self, samp_len):
 
-        for i in range(0, samp_len):
+
+        #Round up and transform as integer samp_len
+        for i in range(0, np.ceil(samp_len).astype(int)):
+
 
             tag = self.sample.generate_configuration()
 
@@ -396,21 +476,27 @@ class Flux(FluxBase):
             elif tag == SampTag.SAMP_FACE_OUT:
                 self._face_num += 1
                 continue
+
+            elif tag == SampTag.SAMP_SUCCESS:  # new addition
+                pass
             else:
-                print("rand_pos status unknow, EXITING\n")
+                self.logger.error("rand_pos status unknow, EXITING\n")
                 exit()
 
-    def run(self, samp_len):
+    def run(self, samp_len, face_id, flux_id=0):
+
         """This function is used for flux calculation
 
         Parameters
         ----------
         samp_len : int
             The number of sampling points for this time the "run" funcion is called.
+
+        face_id : int
+            Id of the face being sampled
         """
         # some constant
-        #print ("44444")
-        #print ("Start running flux calculation")
+
         as_num = 0  # account Sampling
         fs_num = 0  # failed samplings
         cs_num = 0  # face samping
@@ -423,12 +509,16 @@ class Flux(FluxBase):
 
         # each time, number of samp_len points are sampled.
         while (as_num < samp_len):
-            # print "the %dth point" % (as_num)
+
+            # self.logger.info "the %dth point" % (as_num)
+
             pot_num = as_num + fs_num
             vol_num = cs_num + ds_num
 
             if fs_num > self.get_fail_num_max() and not as_num:
-                print("Opps, all potential failed")
+
+                self.logger.error("Opps, all potential failed")
+
                 self.add_acct_smp(as_num)
                 self.add_fail_smp(fs_num)
                 self.add_face_smp(cs_num)
@@ -439,7 +529,9 @@ class Flux(FluxBase):
                 break
 
             """
-            # tag is a integer represent the sampling info,
+
+            # tag is an integer represent the sampling info,
+
               weight, is a float which is a statistic weight that will be used
               in the flux calculation
               energy, is an array of energy, which includes all
@@ -459,12 +551,13 @@ class Flux(FluxBase):
             elif tag == SampTag.SAMP_SUCCESS:
                 pass
             else:
-                print("rand_pos status unknow, EXITING\n")
+
+                self.logger.error("rand_pos status unknow, EXITING\n")
                 exit()
 
             # now check energy:
-            energy = self.sample.get_energies(self.calculator)
-            #print("energy flux: %f" % (energy[0]), " unit in Hartree, called from flux.py run ")
+            energy = self.sample.get_energies(self.calculator, face_id=face_id, flux_id=flux_id)
+
             if energy is None:
                 fs_num += 1
                 continue
@@ -478,6 +571,7 @@ class Flux(FluxBase):
 
             # now update the minimum energy
             for i in range(0, self.energy_size):
+
                 traj = Trajectory('all_successful_config.traj', 'a', self.sample.configuration)
                 traj.write()
                 if energy[i] < self.min_energy[i]:
@@ -486,54 +580,49 @@ class Flux(FluxBase):
                     
             traj.close()
 
+
             as_num += 1
             # calculate the flux.
             for pes in range(0, self.energy_size):  # PES cycle
-                # print energy[pes]
+
                 # Cannonical flux:
                 for t, temp in enumerate(self.temp_grid):  # temperature cycle
                     ratio = -energy[pes]/temp
                     if ratio > 200.0:
                         ratio = 300.0
                     if ratio > - 200.0:
-                        ratio = cn_fac * weight * np.exp(ratio) * np.sqrt(temp) # cn_fac = canonical factor, 2 * sqrt(2*Pi)
+
+                        ratio = cn_fac * weight * np.exp(ratio) * np.sqrt(temp)
                         self.temp_sum[t][pes] += ratio
                         self.temp_var[t][pes] += ratio ** 2
 
-                # Canonical flux:
+                # microcanonical flux:
                 if self.flux_type == 'CANONICAL':
                     continue
-                # This is MICROCANONICAL N(E)
                 for en_ind in range(0, len(self.energy_grid)):  # energy grid cycle
                     ken = self.energy_grid[en_ind] - energy[pes]
                     if (ken) < 0:
-                        continue # loop skip
-                    dtemp = np.power(ken, (dof-1)/2.0) # np.power = max(E-V)^(v-1)/2 term
+                        continue
+                    dtemp = np.power(ken, (dof-1)/2.0)
                     if (dof-1) % 2:
-                        dtemp *= np.sqrt(ken) # This makes ken^(nu/2)
-
-                    dtemp *= (mc_fac) * weight # Weight? phi 같은데? self.weight = lfactor * div_surface.get_dist~~ ////// mc_fac 은 아마도 느낌상 Gamma function 부터 ~ prod of sqrt.2pi.I 까지.
-                    self.e_sum[en_ind][pes] += dtemp # 결국 surface_.out 에 쓰이는건 e_sum... 
-
-                    #print ("e_sum in microcanonical: ", self.e_sum) This prints out whole zero array with adding everytime called out
-                    #print ("e_sum with dtemp en_ind : ", self.e_sum[en_ind]) This is added to multi.py curr_flux.e_sum
-                    #print ("e_sum with dtemp pes : ", self.e_sum[pes]) # This is the reason for all those zeros coming out in self.e_sum
-
+                        dtemp *= np.sqrt(ken)
+                    dtemp *= (mc_fac) * weight
+                    self.e_sum[en_ind][pes] += dtemp
                     self.e_var[en_ind][pes] += dtemp ** 2
 
-                if self.flux_type == 'MICROCANONICAL': # Calls from the upper equation
-                    continue
                 # E-J resoved flux
+                if self.flux_type == 'MICROCANONICAL':
+                    continue
+
                 if self.flux_type != 'EJ-RESOLVED':
-                    raise ValueError("INVALID flux type%s" % (self.flux_type))
-                # you need to figure out what is mc stat weight
+                    raise ValueError("INVALID flux type %s" % (self.flux_type))
                 for en_ind in range(0, len(self.energy_grid)):  # enegy cycle
                     for am_ind in range(0, len(self.angular_grid)):  # angular momentum cycle
-                        ken = self.energy_grid[en_ind] - energy[pes] #E-Vq
+                        ken = self.energy_grid[en_ind] - energy[pes]
                         # rint ken
                         dtemp = rotd_math.mc_stat_weight(
-                            ken, self.angular_grid[am_ind], tim, dof) #여기서 mc_stat_weight 가 불려오며, 현재까지의 추측으로는 이건 phi 를 나타냄. 하지만 아래 라인을 보면 microcanonical 의 추측인 weight 가 불려오는것을 볼 수 있음. 한번 프린트 해볼 필요가 있음.
-                        # print "mc_weight:%f\n" % (dtemp)
+                            ken, self.angular_grid[am_ind], tim, dof)
+
                         dtemp *= (ej_fac * weight / np.sqrt(tim[0] * tim[1] * tim[2]))
                         self.ej_sum[en_ind][am_ind][pes] += dtemp
                         self.ej_var[en_ind][am_ind][pes] += dtemp ** 2

@@ -6,7 +6,7 @@ import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
 from ase_modules.calculators.gaussian import Gaussian
-from amp import Amp
+# from amp import Amp
 
 import rotd_py
 from rotd_py.system import MolType
@@ -202,7 +202,7 @@ class Sample(object):
                 energy = None
 
         elif calculator['code'][-3:].casefold() == 'amp':
-            amp_calc = Amp.load(f"../../{calculator['code']}")
+            amp_calc = Amp.load(f"../../{calculator['code'][-3:]}")
             self.configuration.set_calculator(amp_calc)
             energy = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)

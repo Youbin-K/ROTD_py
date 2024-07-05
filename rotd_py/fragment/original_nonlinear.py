@@ -14,7 +14,7 @@ class Nonlinear(Fragment):
         self.frag_array['stat_sum'] = 2.0 * \
             np.sqrt(2.0 * np.pi * np.prod(self.get_inertia_moments()))
 
-    def lf2mf(self, lf_vector):ㅇ
+    def lf2mf(self, lf_vector):
 
         if self.molecule_type != MolType.NONLINEAR:
             raise ValueError("Wrong molecule type")
@@ -51,8 +51,8 @@ class Nonlinear(Fragment):
         #print ("THIS IS MFOOO: ", mfo)
         orig_mf_pos = self.get_molframe_positions()
         new_com = self.get_labframe_com()
-        #for i in range(0, self.get_number_of_atoms()):
-        for i in range(0, self.get_global_number_of_atoms()):
+        for i in range(0, self.get_number_of_atoms()):
+        #for i in range(0, self.get_global_number_of_atoms()):
             rel_pos = np.dot(orig_mf_pos[i], mfo)
             for j in range(0, 3):
                 self.frag_array['lab_frame_positions'][i][j] = rel_pos[j] + new_com[j]

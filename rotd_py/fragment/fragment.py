@@ -3,6 +3,7 @@ import rotd_py.rotd_math as rotd_math
 import numpy as np
 from abc import ABCMeta, abstractmethod
 from rotd_py.system import MolType
+from rotd_py.sample.sample import Sample, preprocess
 
 
 class Fragment(Atoms):
@@ -38,6 +39,7 @@ class Fragment(Atoms):
                  magmoms=None, charges=None,
                  scaled_positions=None,
                  cell=None, pbc=None, celldisp=None,
+                 #cell=None, pbc=None, celldisp=np.array([[30,30,30]]),
                  constraint=None,
                  calculator=None,
                  info=None):
@@ -50,14 +52,15 @@ class Fragment(Atoms):
         #print ("Hi I'm frag_array", self.frag_array)
 
         self.set_molframe_positions()
-        print ("setting_ mf pos from frag.py init")
+        # self.set_molframe_positions_with_slab()
+
         self.set_molecule_type()
         self.init_dynamic_variable()
 
     @property
     def molecule_type(self):
         """Get the molecule type"""
-        print ("The molecule type is:", self.frag_array['mol_type'])
+        #print ("The molecule type is:", self.frag_array['mol_type'])
         return self.frag_array['mol_type']
 
     @abstractmethod
@@ -69,12 +72,12 @@ class Fragment(Atoms):
 
     def get_total_mass(self):
         """Return the total masses of the molecule, in atomic units """
-        print ("BEEP! getting total_mass")
+        #print ("BEEP! getting total_mass")
         return sum(self.get_masses()) * rotd_math.mp
 
     def get_stat_sum(self):
         """Return the parameters for calculating number of states. """
-        print ("Hi I'm get_stat_sum")
+        #print ("Hi I'm get_stat_sum")
         return self.frag_array['stat_sum']
 
     def get_molframe_positions(self):
@@ -82,9 +85,15 @@ class Fragment(Atoms):
         set at the initialization and never change during the run
 
         """
-        print ("get mf pos from frag.py")
+        #print ("get mf pos from frag.py")
         #print ("99999") 
         return self.frag_array['mol_frame_positions'].copy()
+    
+    # def get_slab_principal_axis(self):
+    #     return self.frag_array['slab_evecs'].copy()
+    
+    def get_molframe_unit_cell(self):
+        return self.frag_array['unit_cell_mf_position'].copy()
 
     def get_relative_positions(self):
         """Return the positions that relative to center of mass. """
@@ -92,25 +101,68 @@ class Fragment(Atoms):
         # Called out same time as below function, set_molframe_position
         #print ("getting relative position")
         com = self.get_center_of_mass()
-        print ("getting COM from def (get_rel_pos) in frag.py")
-        positions = self.get_positions()
+        #print ('com', com) # Initial input value COM
+        #print ('slab COM', com)
+        #print ("getting COM from def (get_rel_pos) in frag.py")
+        # get_positions 할때, 내가 정해준 포지션으로 들어옴
+        positions = self.get_positions() 
+        #print ('positions', positions)
+        #print ('get_relative_position, get_positions: ', positions)
         positions -= com
-
+        #print ('minus com ', positions)
         return positions
 
-    def set_molframe_positions(self):
-        #print ("11111")
-        #This is called out only in the beginning.
+    def get_original_positions(self):
+        """Return the positions that relative to center of mass. """
+        positions = self.get_positions() 
+        return positions
 
+    def set_molframe_positions(self): # In molframe, inertia tensor is diagonal and the kinetic energy does not depend on the Coordinate Q
+        #This is called out only in the beginning.
         """Method used to set up the matrix convert the input Cartesian
         coordinates to molecular frame coordinates and the molecule frame
         positions.
 
         
         """
+        rel_pos = self.get_relative_positions() / rotd_math.Bohr
+        masses = self.get_masses() * rotd_math.mp
+        I11 = I22 = I33 = I12 = I13 = I23 = 0.0
+        for i in range(len(rel_pos)):
+            x, y, z = rel_pos[i]
+            m = masses[i]
 
-        print ("setting molframe_position")
+            I11 += -m * (x ** 2)
+            I22 += -m * (y ** 2)
+            I33 += -m * (z ** 2)
+            I12 += -m * x * y
+            I13 += -m * x * z
+            I23 += -m * y * z
+
+            #print('i,m,x,y,z',i,m,x,y,z)
+
+        I = np.array([[I11, I12, I13, ],
+                      [I12, I22, I23],
+                      [I13, I23, I33]])
+
+        trace = I.trace()
+        I = I - np.array([[trace, 0, 0],
+                          [0, trace, 0],
+                          [0, 0, trace]])
+        #print ('I: ', I) # Diagonal matrix
+        evals, evecs = np.linalg.eigh(I)
         
+        self.frag_array['inertia_moments'] = evals # used for get_inertia_moments, which is used for rc_vec calculation # Principal moments of inertia
+        #print ('original inertia evals: ', evals) # [-3.59920219e-55  4.93132289e+04  4.93132289e+04] for CO on Pt position # Original =  [    0.         52360.26894516 52360.26894516]
+        self.frag_array['orig_mfo'] = evecs # Used to set labframe_pivot for nonlinear # Principal axes for original, Identity matrix
+        #print ('evecs ', evecs) #[[-1.00000000e+00  2.70160221e-30  0.00000000e+00] [-6.55234780e-31 -2.42535625e-01 -9.70142500e-01] [-2.62093912e-30 -9.70142500e-01  2.42535625e-01]] for CO on Pt position
+        #print ('rel_pos ', rel_pos) # relative position, original position - center of mass
+        # Used for get_molframe_positions, which is used for set_labframe_position
+        # 분자의 configuration 에 의해 정해진 rotation matrix (evecs)
+        #print ('rel_pos for all', rel_pos)
+        self.frag_array['mol_frame_positions'] = np.dot(rel_pos, evecs) # matrix X matrix 여서 지금은 그냥 곱셈이나 마찬가지
+
+    def set_slab_principal_axis_for_visualization(self): 
         rel_pos = self.get_relative_positions() / rotd_math.Bohr
         masses = self.get_masses() * rotd_math.mp
         I11 = I22 = I33 = I12 = I13 = I23 = 0.0
@@ -133,30 +185,56 @@ class Fragment(Atoms):
         I = I - np.array([[trace, 0, 0],
                           [0, trace, 0],
                           [0, 0, trace]])
+        new_evals, new_evecs = np.linalg.eigh(I)
+        
+        #self.frag_array['inertia_moments'] = evals # used for get_inertia_moments, which is used for rc_vec calculation # Principal moments of inertia
+        self.frag_array['slab_evecs'] = new_evecs # Used to set labframe_pivot for nonlinear # Principal axes for original, Identity matrix
 
-        evals, evecs = np.linalg.eigh(I)
 
-        self.frag_array['inertia_moments'] = evals
-        self.frag_array['orig_mfo'] = evecs
-        self.frag_array['mol_frame_positions'] = np.dot(rel_pos, evecs)
+    def set_adsorbate_principal_axis_for_visualization(self): 
+        rel_pos = self.get_relative_positions() / rotd_math.Bohr
+        masses = self.get_masses() * rotd_math.mp
+        I11 = I22 = I33 = I12 = I13 = I23 = 0.0
+        for i in range(len(rel_pos)):
+            x, y, z = rel_pos[i]
+            m = masses[i]
+            I11 += -m * (x ** 2)
+            I22 += -m * (y ** 2)
+            I33 += -m * (z ** 2)
+            I12 += -m * x * y
+            I13 += -m * x * z
+            I23 += -m * y * z
 
-        print ("I've set the mol_frame_pos for you baby")
+        I = np.array([[I11, I12, I13, ],
+                      [I12, I22, I23],
+                      [I13, I23, I33]])
 
-    # all the following are dynamic variable related to on-the-fly sampling
+        trace = I.trace()
+        I = I - np.array([[trace, 0, 0],
+                          [0, trace, 0],
+                          [0, 0, trace]])
+        adsorbate_evals, adsorbate_evecs = np.linalg.eigh(I)
+        #print ('adsorbate evecs', adsorbate_evecs)
+        #print ('rel_pos for CO', rel_pos) # This should be same to set_molframe_position rel_pos() => Is same
+        self.frag_array['adsorbate_molframe_positions_for_visual'] = np.dot(rel_pos, adsorbate_evecs)
+
     def init_dynamic_variable(self):
         """Initialize the dynamic variable related to rotating the molecule. """
-        #self.frag_array['lab_frame_positions'] = np.zeros((self.get_number_of_atoms(), 3))
-        self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3))
+        self.frag_array['lab_frame_positions'] = np.zeros((self.get_number_of_atoms(), 3)) # for ase 3.13.0
+        #self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3)) # for ase 3.19.1
+        self.frag_array['visualization_positions'] = np.zeros((self.get_number_of_atoms(), 3)) # for ase 3.13.0
+        self.frag_array['slab_evec'] = np.zeros((3, 3))
+
         self.frag_array['lab_frame_COM'] = np.zeros(3)
         self.frag_array['orient_vector'] = np.zeros(self.get_ang_size())
         self.frag_array['mfo'] = np.zeros((3, 3))
-        print ("init_dynamic_variable")
+        #print ("init_dynamic_variable")
 
     def set_ang_pos(self, orient_vec):
         """Set up the rotation vector (random generated) for the molecule.
 
         """
-        print("I'm setting the angle_position")
+        #print("I'm setting the angle_position")
 
         if len(orient_vec) != len(self.frag_array['orient_vector']):
             raise ValueError("Orientation vector dimension does not fit")
@@ -164,16 +242,42 @@ class Fragment(Atoms):
             self.frag_array['orient_vector'][i] = orient_vec[i]
         
 
-    def set_labframe_com(self, new_com):
+    def set_labframe_com(self, new_com): #여기여기. 어쩌면 바꿔야할지도 아닐지도
         """Set up the center of mass positions of the fragment in the lab frame
         after getting the rotation vector between the two fragments.
 
         """
-        print ("Set the labframe_COM")
+        #print ("Set the labframe_COM")
         if any(item is None for item in new_com) or len(new_com) != 3:
             raise ValueError('Wrong dimension of position')
-        for i in range(0, len(new_com)):
-            self.frag_array['lab_frame_COM'][i] = new_com[i]
+        if self.molecule_type == MolType.SLAB:
+            # test_com = self.get_center_of_mass() / rotd_math.Bohr
+            # for i in range(0,len(test_com)):
+            #     self.frag_array['lab_frame_COM'][i] = test_com[i]
+            for i in range(0,len(new_com)):
+                self.frag_array['lab_frame_COM'][i] = new_com[i]
+        else: 
+            for i in range(0, len(new_com)):
+                self.frag_array['lab_frame_COM'][i] = new_com[i]
+
+    def set_labframe_com_for_sys_with_slab_all_orig_pos(self, new_com): #여기여기. 어쩌면 바꿔야할지도 아닐지도
+        """Set up the center of mass positions of the fragment in the lab frame
+        after getting the rotation vector between the two fragments.
+
+        """
+        #print ("Set the labframe_COM")
+        if any(item is None for item in new_com) or len(new_com) != 3:
+            raise ValueError('Wrong dimension of position')
+        if self.molecule_type == MolType.SLAB:
+            #test_com = [2, 7.5, 0]
+            test_com = self.get_center_of_mass() / rotd_math.Bohr
+            #test_com = sample.div_surface.get_pivot_point(frag_index, face)
+            for i in range(0,len(test_com)):
+                self.frag_array['lab_frame_COM'][i] = test_com[i]
+        else: 
+            test_com = self.get_center_of_mass() / rotd_math.Bohr
+            for i in range(0, len(test_com)):
+                self.frag_array['lab_frame_COM'][i] = test_com[i]
 
     def get_ang_pos(self):
         return self.frag_array['orient_vector'].copy()
@@ -183,12 +287,20 @@ class Fragment(Atoms):
 
     def get_rotation_matrix(self):
         return self.frag_array['mfo'].copy()
+    
+    def get_slab_principal_axis(self):
+        return self.frag_array['slab_evec'].copy()
 
     def get_labframe_com(self):
         return self.frag_array['lab_frame_COM'].copy()
 
     def get_labframe_positions(self):
         return self.frag_array['lab_frame_positions'].copy()
+    
+
+
+    def get_visualization_positions(self):
+        return self.frag_array['visualization_positions'].copy()
 
     # The following functions are related to the type of molecule, so they are
     # defined separately under each molecular type.
@@ -234,3 +346,7 @@ class Fragment(Atoms):
         """Return the moments of inertia of molecule, same to the
         atoms.get_moments_of_inertia() function, with different units.
         """
+
+    @abstractmethod
+    def unit_cell_mf(self):
+        pass

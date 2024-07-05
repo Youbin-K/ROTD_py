@@ -16,14 +16,14 @@ class Monoatomic(Fragment):
 
         if self.molecule_type != MolType.MONOATOMIC:
             raise ValueError("Wrong molecule type")
-        print ("MONO lf_vector: ", lf_vector)
+        #print ("MONO lf_vector: ", lf_vector)
         return lf_vector
 
     def mf2lf(self, mf_vector):
 
         if self.molecule_type != MolType.MONOATOMIC:
             raise ValueError("Wrong molecule type")
-        print ("MONOATOMIC mf_vector: ", mf_vector)
+        #print ("MONOATOMIC mf_vector: ", mf_vector)
         return mf_vector
 
     def set_mfo(self):

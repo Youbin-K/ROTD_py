@@ -6,7 +6,10 @@ import copy
 from collections import OrderedDict
 from rotd_py.flux.flux import MultiFlux
 from rotd_py.system import FluxTag
-
+from ase.io.trajectory import Trajectory
+from ase import Atoms, atoms
+import numpy as np
+import rotd_py.rotd_math as rotd_math
 
 class multi_master():
     """This is the class for describing the work of the master,
@@ -102,11 +105,33 @@ class multi_master():
 
                 # update the minimum energy and configuration
                 for i in range(0, curr_flux.energy_size):
+                    #print ('iiii', i)
                     if slave_flux.min_energy[i] < curr_flux.min_energy[i]:
+                                
+                        #slave_flux.sample.labframe_configuration.set_positions(new_positions)
                         # This updates the minimum energy obtained from flux.py
                         print("multi:%f" % (slave_flux.min_energy[i]), "unit in Hartree")
+                        print ("multi:%f" % (slave_flux.min_energy[i] * rotd_math.Hartree), "unit in eV")
+
                         curr_flux.min_energy[i] = slave_flux.min_energy[i]
                         curr_flux.min_geometry[i] = slave_flux.min_geometry[i].copy()
+
+                        # print ('fragment lab_com[0] ', slave_flux.sample.fragments[0].get_labframe_com())
+                        # print ('fragment lab_com[1] ', slave_flux.sample.fragments[1].get_labframe_com())
+                        #print ('fragment lf_pivot[0]', slave_flux.sample.fragments[0].lf_pivot())
+                        # print ('fragment lab[0] ', slave_flux.sample.fragments[0].get_labframe_positions())
+                        # print ('positions = ', slave_flux.sample.fragments[1].get_labframe_positions())
+                    # success_traj = Trajectory('aow-labframe.traj', 'a', slave_flux.sample.labframe_configuration)
+                    # success_traj.write()
+                    traj = Trajectory('aow-does_this_work.traj', 'a', slave_flux.sample.configuration)
+                    traj.write()      
+
+                    traj2 = Trajectory('aow-how_about_rotation.traj', 'a', slave_flux.sample.visual_configuration)
+                    traj2.write()
+                traj.close()   
+                traj2.close()
+                # success_traj.close()
+
                 # check the current flux converged or not
                 flux_tag, smp_info = curr_multi_flux.check_state()
                 # if continue sample for current flux and for the face index:
@@ -119,16 +144,21 @@ class multi_master():
 
                 elif flux_tag == FluxTag.SURF_TAG:
                     smp_num = smp_info
-                    print("SURFACE")
+                    #print("SURFACE")
                     for face_index in range(0, len(smp_num)):
                         if smp_num[i] != 0:
                             flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
-                            print ("SURF_TAG", flux)
+                            #print ("SURF_TAG", flux)
                             self.work_queue.add_work(data=(flux_tag, sid, flux,
                                                            smp_num[i]))
 
                 elif flux_tag == FluxTag.STOP_TAG:
                     self.total_flux[str(sid)].save_file(sid)
+                    # for i in range(0, curr_flux.energy_size):
+                    #     traj = Trajectory('atest.traj', 'a', slave_flux.sample.configuration)
+                    #     traj.write()      
+                    # traj.close()   
+
                     self.work_queue.empty_work_queue()
                     # initialize the calculation for the next dividing surfaces
                     if curr_surf == num_surfaces:
@@ -235,10 +265,12 @@ class Multi(object):
                 app.run()
                 # save the last flux
                 app.terminate_slaves()
-            elif rank ==1:
-                self.slave.run() 
             else:
-                print ("rank is not 1")
+                self.slave.run()
+            #elif rank ==1:
+            #    self.slave.run() 
+            #else:
+            #    print ("rank is not 1")
                 #self.slave.run()
         except KeyError:
             MPI.COMM_WORLD.Abort(1)

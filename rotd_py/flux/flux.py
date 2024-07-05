@@ -6,6 +6,7 @@ from rotd_py.flux.fluxbase import FluxBase
 import copy
 import os
 from ase.io.trajectory import Trajectory
+import logging
 min_flux = 1e-99
 # CAUTION! all units are atomic unit
 
@@ -21,7 +22,7 @@ class MultiFlux:
     determines the dimension of MultiFlux
 
     """
-    print ("Welcome to multi-flux")
+    #print ("Welcome to multi-flux")
     def __init__(self, fluxbase=None, num_faces=1, sample=None, calculator=None):
 
         if fluxbase is None:
@@ -45,6 +46,7 @@ class MultiFlux:
                                       sample=copy.deepcopy(sample),
                                       calculator=calculator
                                       )
+            #print ('num of faces: ', i) #0, 1, 2, 3
             self.flux_array[i].sample.div_surface.set_face(i)
 
     def check_state(self):
@@ -265,7 +267,7 @@ class Flux(FluxBase):
     def set_vol_num_max(self, vol_max=1000):
         self._vol_max_num = vol_max
 
-    def set_fail_num_max(self, fail_max=10):
+    def set_fail_num_max(self, fail_max=1000):
         self._fail_max_num = fail_max
 
     def get_vol_num_max(self):
@@ -277,7 +279,7 @@ class Flux(FluxBase):
     def is_pot(self):
         # test function to see whether can start flux normalization
         #print ("is_pot 111111111")
-        print ("Testing to see if we can normalize the flux")
+        #print ("Testing to see if we can normalize the flux")
         if not self.tot_smp():
             raise ValueError("NO Sampling Found!")
         if not self.pot_smp():
@@ -289,7 +291,7 @@ class Flux(FluxBase):
     def normalize(self):
         """This function is used to normalize everything
         """
-        print ("Initialize normalizing")
+        #print ("Initialize normalizing")
         if not self.acct_smp():
             return
         # TODO: figure out why
@@ -338,6 +340,7 @@ class Flux(FluxBase):
             raise ValueError("INVALID Energy")
 
         if not self.is_pot():
+            #print ('not self.is_pot, def check_index')
             return False
         else:
             return True
@@ -348,6 +351,7 @@ class Flux(FluxBase):
         j: energy index
         """
         if not self.check_index(i, j):
+            #print ('flux.py average')
             return 0
 
         ave = self.temp_sum[i, j]/float(self.acct_smp()) *\
@@ -363,6 +367,7 @@ class Flux(FluxBase):
     def pot_fluctuation(self, temp_index, j):
         """ return the fluctuation based on potential sampling"""
         if not self.check_index(temp_index, j):
+            #print ('flux.py pot_fluctuation')
             return 0
 
         temp = self.temp_sum[temp_index, j]/float(self.acct_smp())
@@ -374,6 +379,7 @@ class Flux(FluxBase):
     def vol_fluctuation(self, i, j):
         """ return the fluctuation based on volume sampling"""
         if not self.check_index(i, j):
+            #print ('flux.py vol_fluctuation')
             return 0
 
         fluc = self.temp_sum[i, j]/float(self.acct_smp()) * \
@@ -415,6 +421,7 @@ class Flux(FluxBase):
         fs_num = 0  # failed samplings
         cs_num = 0  # face samping
         ds_num = 0  # distance too close sampling
+        test_labframe = 0 # Labframe sampling
 
         cn_fac = self.sample.get_canonical_factor()
         mc_fac = self.sample.get_microcanonical_factor()
@@ -436,6 +443,7 @@ class Flux(FluxBase):
                 raise RuntimeError("ALL potentail failed")
 
             if vol_num > self.get_vol_num_max() and not self.is_pot():
+                #print ('breaking, flux.py')
                 break
 
             """
@@ -467,27 +475,54 @@ class Flux(FluxBase):
             #print("energy flux: %f" % (energy[0]), " unit in Hartree, called from flux.py run ")
             if energy is None:
                 fs_num += 1
+                #print ('failedddd')
                 continue
 
-            tim = self.sample.get_tot_inertia_moments()
-            weight = self.sample.get_weight()
+            #print ('before tim position',self.sample.configuration.get_positions())
+
+            # 이거 바꿔야할듯 slab은 없잖아?
+            # 여기여기여기 
+            
+            tim = self.sample.get_tot_inertia_moments() #우선, 이거는 계산할때 포지션이 어떻게 되는가? -> Labframe Ang 일거임.
+                                                        #근데 더 중요한건 이건 fragment의 구분 없이 다 계산함.
+                                                        #Eigen value 만 가지고나옴. principal axis인 eigen vector는 리턴되지 않음.
+            #print ('below tim')
+            weight = self.sample.get_weight() #이 라인은 generate_configuration 에서 나오는거고, labframe in Ang 으로 계산됨
 
             if tim.any() is None or tim.any() < 0:
                 fs_num += 1
+                #print ('asdasd')
                 continue
-
-            # now update the minimum energy
-            for i in range(0, self.energy_size):
-                traj = Trajectory('all_successful_config.traj', 'a', self.sample.configuration)
-                traj.write()
+            
+            #print ('tim from atoms.py ', tim)
+            #now update the minimum energy
+            for i in range(0, self.energy_size):  
                 if energy[i] < self.min_energy[i]:
                     self.min_energy[i] = energy[i]
-                    self.min_geometry[i] = self.sample.configuration.get_positions()
-                    
-            traj.close()
+                    self.min_geometry[i] = self.sample.configuration.get_positions() # 여기여기여기 labframe이 맞나요?
+                if vol_num <= self.get_vol_num_max() or self.is_pot() and self.acct_smp:
+                    #print ('labframe? ',self.sample.labframe_configuration)
+
+                    # print ('fragment lab_com[0] ', self.sample.fragments[0].get_labframe_com())
+                    # print ('fragment lab_com[1] ', self.sample.fragments[1].get_labframe_com())
+                   
+                    # print ('fragment lab[0] ', self.sample.fragments[0].get_labframe_positions())
+                    # print ('fragment lab[1] ', self.sample.fragments[1].get_labframe_positions())
+                    #print ('self.sample.configuration', self.sample.configuration.get_positions())
+                    #print ('wat',self.sample.configuration.get_positions())
+                    labframe_traj = Trajectory('accepted_labframe_in_Bohr.traj', 'a', self.sample.labframe_configuration)
+                    labframe_traj.write()
+                    #new_traj = Trajectory('accepted_sampling.traj', 'a', self.sample.configuration)
+                    #new_traj.write() 
+            labframe_traj.close()
+            #new_traj.close()
+
+
+
 
             as_num += 1
             # calculate the flux.
+            
             for pes in range(0, self.energy_size):  # PES cycle
                 # print energy[pes]
                 # Cannonical flux:
@@ -543,3 +578,5 @@ class Flux(FluxBase):
         self.add_fail_smp(fs_num)
         self.add_face_smp(cs_num)
         self.add_close_smp(ds_num)
+
+        #print ('length of acct smp', len(self.add_acct_smp()))

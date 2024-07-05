@@ -15,7 +15,6 @@ class SampTag(Enum):
     SAMP_FACE_OUT = 2
     SAMP_SUCCESS = 3
 
-
 class FluxTag(Enum):
     FLUX_TAG = 1
     SURF_TAG = 2

@@ -3,10 +3,13 @@ import numpy as np
 import rotd_py.rotd_math as rotd_math
 from scipy.interpolate import make_interp_spline
 from rotd_py.analysis import create_matplotlib_graph
+from rotd_py.sample.sample import Sample
 
 class Correction():
     """Class that creates correction objects, which provide a correction potential for each sample"""
-    def __init__(self, name:str, parameters:dict, sample):
+    def __init__(self, name:str,
+                 parameters:dict,
+                 sample: Sample):
         self.name = name
         self.sample = sample
         self.type = parameters["type"].casefold()

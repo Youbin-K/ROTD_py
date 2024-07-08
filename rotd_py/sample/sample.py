@@ -8,11 +8,10 @@ from ase.atoms import Atoms
 from ase_modules.calculators.gaussian import Gaussian
 # from amp import Amp
 
-import rotd_py
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.molpro.molpro import Molpro
-from rotd_py.sample.correction import Correction
+from rotd_py.corrections.correction import Correction
 
 
 class Sample(object):
@@ -75,6 +74,7 @@ class Sample(object):
         if corrections == None or not isinstance(corrections, dict):
             return
         for correction_name in corrections:
+            cg = 
             self.corrections[correction_name] = Correction(correction_name, corrections[correction_name], self)
 
     def get_dividing_surface(self):

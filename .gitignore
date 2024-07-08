@@ -1,3 +1,6 @@
 .idea
 .vscode
 *.pyc
+surf0_face0_samp1.inp
+test.py
+test.sh

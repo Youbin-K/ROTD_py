@@ -74,7 +74,6 @@ class Sample(object):
         if corrections == None or not isinstance(corrections, dict):
             return
         for correction_name in corrections:
-            cg = 
             self.corrections[correction_name] = Correction(correction_name, corrections[correction_name], self)
 
     def get_dividing_surface(self):

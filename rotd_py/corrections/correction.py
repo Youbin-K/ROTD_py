@@ -2,7 +2,7 @@ import numpy as np
 
 import rotd_py.rotd_math as rotd_math
 from rotd_py.analysis import create_matplotlib_graph
-from rotd_py.sample.sample import Sample
+#from rotd_py.sample.sample import Sample
 import abc
 from ase.atoms import Atoms
 
@@ -16,7 +16,7 @@ class Correction:
     def __init__(self,
                  name: str,
                  parameters: dict,
-                 sample: Sample):
+                 sample):
         self.name = name
         self.sample = sample
 
@@ -52,7 +52,7 @@ class Correction:
         """
         return 0.0
 
-    def plot(self, xmin=0., xmax=20.) -> float:
+    def plot(self, xmin=0., xmax=20.):
         """Function that create a matplotlib plot of the correction"""
         x = np.arange(xmin, xmax, 0.01)
         y = [self.energy(distance=distance) /

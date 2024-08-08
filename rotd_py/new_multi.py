@@ -327,7 +327,7 @@ class Multi(object):
                     continue
                 face_index = job_flux.sample.div_surface.get_curr_face()
                 
-                if face_index not in self.selected_faces[int(surf_id)]:  # HACKED !!!!!
+                if face_index not in self.selected_faces[int(surf_id)]:
                     self.newly_finished_jobs.remove(job)
                     continue
                 curr_multi_flux = self.total_flux[surf_id]

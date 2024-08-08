@@ -15,7 +15,7 @@ class OneDimensional(Correction):
                                              sample)
 
     @property
-    def necessary_keys(self):
+    def necessary_keys(self) -> list[str]:
         return ["r_sample", "r_trust", "e_sample", "e_trust", "scan_ref"]
 
     def generate(self,

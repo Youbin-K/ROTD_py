@@ -1,5 +1,4 @@
 from rotd_py.corrections.correction import Correction
-from rotd_py.sample.sample import Sample
 import rotd_py.rotd_math as rotd_math
 from scipy.interpolate import make_interp_spline
 import numpy as np
@@ -9,7 +8,7 @@ from ase.atoms import Atoms
 class OneDimensional(Correction):
     def __init__(self,
                  name: str,
-                 sample: Sample):
+                 sample):
 
         super(OneDimensional, self).__init__(name,
                                              sample)

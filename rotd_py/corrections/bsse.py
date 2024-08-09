@@ -1,5 +1,4 @@
 from rotd_py.corrections.correction import Correction
-from rotd_py.sample.sample import Sample
 import rotd_py.rotd_math as rotd_math
 import numpy as np
 from ase.atoms import Atoms
@@ -8,7 +7,7 @@ from ase.atoms import Atoms
 class BSSE(Correction):
     def __init__(self,
                  name: str,
-                 sample: Sample):
+                 sample):
 
         super(BSSE, self).__init__(name,
                                    sample)
@@ -18,7 +17,7 @@ class BSSE(Correction):
         return []
 
     def generate(self,
-                 parameters: dict):
+                 parameters: dict) -> None:
 
         self.type = parameters["type"].casefold()
 

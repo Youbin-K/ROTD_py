@@ -1,5 +1,4 @@
 from rotd_py.corrections.correction import Correction
-from rotd_py.sample.sample import Sample
 from rotd_py.corrections.onedimensional import OneDimensional
 from rotd_py.corrections.bsse import BSSE
 
@@ -8,12 +7,12 @@ class CorrectionGenerator:
     def __init__(self,
                  name: str,
                  parameters: dict,
-                 sample: Sample) -> None:
+                 sample) -> None:
 
         self.name = name
         self.sample = sample
-        self.init_correction()
         self.param = parameters
+        self.init_correction()
         self.corr: Correction
 
     def init_correction(self) -> None:
@@ -24,7 +23,7 @@ class CorrectionGenerator:
         if type == '1d':
             self.corr = OneDimensional(self.name,
                                        self.sample)
-        elif self.type == "counterpoise":
+        elif type == "counterpoise":
             self.corr = BSSE(self.name,
                              self.sample)
 

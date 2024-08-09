@@ -15,10 +15,10 @@ class Correction:
 
     def __init__(self,
                  name: str,
-                 parameters: dict,
                  sample):
         self.name = name
         self.sample = sample
+
 
     @property
     def necessary_keys(self) -> list:

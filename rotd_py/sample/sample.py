@@ -11,7 +11,8 @@ from ase_modules.calculators.gaussian import Gaussian
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.molpro.molpro import Molpro
-from rotd_py.corrections.correction import Correction
+from rotd_py.corrections.correction_generator import CorrectionGenerator
+from rotd_py.corrections.bsse import BSSE
 
 
 class Sample(object):
@@ -47,13 +48,13 @@ class Sample(object):
                     r_trust: trust level scan distances (Angstrom). Same length as e_trust.
     """
 
-    def __init__(self, name=None, fragments=None, dividing_surface=None,
+    def __init__(self, name, fragments, dividing_surface=None,
                  min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
                  corrections=None):
         __metaclass__ = ABCMeta
         self.name=name
         # list of fragments
-        self.fragments = fragments
+        self.fragments: Atoms = fragments
         if fragments is None or len(fragments) < 2:
             raise ValueError("For sample class, \
                             at least two None fragments are needed")
@@ -74,7 +75,11 @@ class Sample(object):
         if corrections == None or not isinstance(corrections, dict):
             return
         for correction_name in corrections:
-            self.corrections[correction_name] = Correction(correction_name, corrections[correction_name], self)
+            cg = CorrectionGenerator(correction_name,
+                                     corrections[correction_name],
+                                     self)
+            cg.generate()
+            self.corrections[correction_name] = cg.corr
 
     def get_dividing_surface(self):
         return self.div_surface
@@ -241,7 +246,7 @@ class Sample(object):
                     new_calc.pop(key, None)
 
             for correction in self.corrections.values():
-                if correction.type == "counterpoise":
+                if isinstance(correction, BSSE):
                     new_calc['fragment1'] = f"{correction.fragments_indexes[0]};{correction.fragment1_charge};{correction.fragment1_mult}"
                     new_calc['fragment2'] = f"{correction.fragments_indexes[1]};{correction.fragment2_charge};{correction.fragment2_mult}"
                     break
@@ -253,7 +258,7 @@ class Sample(object):
         #Needs to be separated to recover correct energy if CP correction is used.
         if calculator['code'].casefold() == "gaussian":
             for correction in self.corrections.values():
-                if correction.type == "counterpoise":
+                if isinstance(correction, BSSE):
                     with open(f'{label}.log', 'r') as f:
                         lines = f.readlines()
                     for line in lines:

@@ -209,16 +209,6 @@ class MultiSample(Sample):
 
         self.configuration.set_positions(new_positions) # Labframe, in Ang
         self.labframe_configuration.set_positions(test_labframe_positions)
-     
-        # if frag.molecule_type == MolType.SLAB:
-        #     self.fragments[i].unit_cell_mf()       
-        #     orig_unit_cell_pos = self.fragments[i].get_molframe_unit_cell()
-        #     rotated_unit_cell_334_pt = self.fragments[i].unit_cell_mf2lf(orig_unit_cell_pos)
-        #     rotated_unit_cell_334_pt *= rotd_math.Bohr
-        #     self.configuration.set_celldisp(-np.array([30,30,30]))
-        #     self.configuration.get_celldisp()
-        #     self.configuration.set_cell(rotated_unit_cell_334_pt, scale_atoms=True)
-            
 
         #Check the distance of slab and molecule  
         # 여기여기

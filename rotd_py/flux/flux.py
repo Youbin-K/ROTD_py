@@ -1,6 +1,6 @@
 import numpy as np
 
-from rotd_py.system import SampTag, FluxTag
+from rotd_py.system import SampTag, FluxTag, MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.flux.fluxbase import FluxBase
 import copy
@@ -280,7 +280,7 @@ class Flux(FluxBase):
         # test function to see whether can start flux normalization
         #print ("is_pot 111111111")
         #print ("Testing to see if we can normalize the flux")
-        if not self.tot_smp():
+        if not self.tot_smp(): # tot_smp가 아니면 노 샘플링 파운드..
             raise ValueError("NO Sampling Found!")
         if not self.pot_smp():
             return False
@@ -425,8 +425,23 @@ class Flux(FluxBase):
 
         cn_fac = self.sample.get_canonical_factor()
         mc_fac = self.sample.get_microcanonical_factor()
-        ej_fac = self.sample.get_ej_factor()
+        #print ('here is 6666') 
+
+        there_is_slab = False
+        for f in self.sample.fragments:
+            if f.molecule_type == MolType.SLAB:
+                there_is_slab = True
+                break
+
+        if there_is_slab == False:            
+            ej_fac = self.sample.get_ej_factor()
+        else:
+            asdfasfd = 32
+            #print ('there is no slab so no ej factor is calculated')
+            
+        #print ('here is 7777') # 여기 까지는 못옴
         dof = self.sample.get_dof()
+        #print ('dof in flux.py', dof)
 
         # each time, number of samp_len points are sampled.
         while (as_num < samp_len):
@@ -442,6 +457,9 @@ class Flux(FluxBase):
                 self.add_dist_smp(ds_num)
                 raise RuntimeError("ALL potentail failed")
 
+            # print ('vol_num', vol_num)
+            # print ('volnum max', self.get_vol_num_max())
+            # print ('is pot', self.is_pot())
             if vol_num > self.get_vol_num_max() and not self.is_pot():
                 #print ('breaking, flux.py')
                 break
@@ -454,6 +472,7 @@ class Flux(FluxBase):
               the corrected energy
               tim is the [x,y,z] which is the inertia moments of the configuration.
             """
+            
             tag = self.sample.generate_configuration()
 
             if tag == 0:
@@ -483,42 +502,30 @@ class Flux(FluxBase):
             # 이거 바꿔야할듯 slab은 없잖아?
             # 여기여기여기 
             
-            tim = self.sample.get_tot_inertia_moments() #우선, 이거는 계산할때 포지션이 어떻게 되는가? -> Labframe Ang 일거임.
-                                                        #근데 더 중요한건 이건 fragment의 구분 없이 다 계산함.
-                                                        #Eigen value 만 가지고나옴. principal axis인 eigen vector는 리턴되지 않음.
+            tim = self.sample.get_tot_inertia_moments() 
             #print ('below tim')
-            weight = self.sample.get_weight() #이 라인은 generate_configuration 에서 나오는거고, labframe in Ang 으로 계산됨
+            weight = self.sample.get_weight() #이 라인은 generate_configuration 에서 나오는거고, 
 
             if tim.any() is None or tim.any() < 0:
                 fs_num += 1
-                #print ('asdasd')
+                #print ('tim failed')
                 continue
+            
             
             #print ('tim from atoms.py ', tim)
             #now update the minimum energy
             for i in range(0, self.energy_size):  
                 if energy[i] < self.min_energy[i]:
                     self.min_energy[i] = energy[i]
-                    self.min_geometry[i] = self.sample.configuration.get_positions() # 여기여기여기 labframe이 맞나요?
+                    self.min_geometry[i] = self.sample.configuration.get_positions() 
                 if vol_num <= self.get_vol_num_max() or self.is_pot() and self.acct_smp:
-                    #print ('labframe? ',self.sample.labframe_configuration)
-
-                    # print ('fragment lab_com[0] ', self.sample.fragments[0].get_labframe_com())
-                    # print ('fragment lab_com[1] ', self.sample.fragments[1].get_labframe_com())
-                   
-                    # print ('fragment lab[0] ', self.sample.fragments[0].get_labframe_positions())
-                    # print ('fragment lab[1] ', self.sample.fragments[1].get_labframe_positions())
-                    #print ('self.sample.configuration', self.sample.configuration.get_positions())
-                    #print ('wat',self.sample.configuration.get_positions())
-                    labframe_traj = Trajectory('accepted_labframe_in_Bohr.traj', 'a', self.sample.labframe_configuration)
+                    labframe_traj = Trajectory('accepted_surf_labframe_in_Bohr.traj', 'a', self.sample.surface_labframe_configuration)
                     labframe_traj.write()
-                    #new_traj = Trajectory('accepted_sampling.traj', 'a', self.sample.configuration)
-                    #new_traj.write() 
+
+                    gas_labframe_traj = Trajectory('accepted_gas_labframe_in_Bohr.traj', 'a', self.sample.gas_labframe_configuration)
+                    gas_labframe_traj.write()
             labframe_traj.close()
-            #new_traj.close()
-
-
-
+            gas_labframe_traj.close()
 
             as_num += 1
             # calculate the flux.
@@ -553,6 +560,7 @@ class Flux(FluxBase):
                     #print ("e_sum in microcanonical: ", self.e_sum) This prints out whole zero array with adding everytime called out
                     #print ("e_sum with dtemp en_ind : ", self.e_sum[en_ind]) This is added to multi.py curr_flux.e_sum
                     #print ("e_sum with dtemp pes : ", self.e_sum[pes]) # This is the reason for all those zeros coming out in self.e_sum
+                    #print ('In the microcanonical') #여기도 잘 돔
 
                     self.e_var[en_ind][pes] += dtemp ** 2
 
@@ -573,10 +581,17 @@ class Flux(FluxBase):
                         self.ej_sum[en_ind][am_ind][pes] += dtemp
                         self.ej_var[en_ind][am_ind][pes] += dtemp ** 2
 
+                
+
         # update the sampled points
         self.add_acct_smp(as_num)
         self.add_fail_smp(fs_num)
         self.add_face_smp(cs_num)
         self.add_close_smp(ds_num)
 
-        #print ('length of acct smp', len(self.add_acct_smp()))
+        # print ('length of acct smp', len(self.add_acct_smp()))
+        # print ('accepted',self._acct_num)
+        # print ('failed', self._fail_num)
+        # print ('fake', self._fake_num)
+        # print ('face', self._face_num)
+        # print ('close', self._close_num)

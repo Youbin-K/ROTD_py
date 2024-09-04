@@ -25,10 +25,17 @@ class Linear(Fragment):
         #print ("LINEAR lf2mf: ", np.dot(self.get_rotation_matrix(), lf_vector.resize(3, 1)).resize(3,))
         #print ("LINEAR lf_vector: ", lf_vector)
         
-        #return np.dot(self.get_rotation_matrix(), lf_vector.reshape(3, 1)).reshape(3,)
-        
         # Below is original
-        return np.dot(self.get_rotation_matrix(), lf_vector.resize(3, 1)).resize(3,)
+        # return np.dot(self.get_rotation_matrix(), lf_vector.resize(3, 1)).resize(3,)
+    
+        #한번에 바꿔야함 #1
+        return np.dot(self.get_rotation_matrix(), lf_vector.reshape(3, 1)).reshape(3,)        
+    
+
+    
+
+        
+
 
 
     def mf2lf(self, mf_vector):
@@ -40,10 +47,14 @@ class Linear(Fragment):
 
         #print ("Linear  : ",np.dot(mf_vector, self.get_rotation_matrix()).resize(3,))
         
-        # return np.dot(mf_vector, self.get_rotation_matrix()).reshape(3,)
-
         # Below is original
-        return np.dot(mf_vector, self.get_rotation_matrix()).resize(3,)
+        # return np.dot(mf_vector, self.get_rotation_matrix()).resize(3,)        
+    
+        # 한번에 바꿔야함 #1
+        # print ('rotation matrix ',self.get_rotation_matrix()) # 무수히 많은 종류의 값. get_rotation_matrix의 베이스가 get_ang_pos이기 때문에
+        return np.dot(mf_vector, self.get_rotation_matrix()).reshape(3,)
+
+
 
     """
     def get_labframe_imm(self, i, j):
@@ -108,49 +119,37 @@ class Linear(Fragment):
         #for i in range(0, self.get_global_number_of_atoms()): # for ase==3.19.0 and over
             # Original
             factor = orig_mf_pos[i][0] / norm # x 좌표 가져옴
-            # My test
-            #factor = orig_mf_pos[i]
             for j in range(0, 3):
                 self.frag_array['lab_frame_positions'][i][j] = new_com[j] + \
                     factor * rot_vec[j]
-
-    def set_labframe_positions_only_for_visualization(self):
-        rot_vec = self.get_ang_pos() # random value
-        new_com = self.get_labframe_com()
+    
+    def set_labframe_positions_for_surface_rotd(self):
+        # molframe 가져와서 랜덤 로테이션 매트릭스만큼 닷 프로덕트 하고 나온 포지션에 센터오브매스 더해줌
+        # molframe 의 경우, 내가 준 포지션에대해서 evecs(principal axis) 곱해서 정해짐
+        mfo = self.get_rotation_matrix() # random
+        # print ("THIS IS MFOOO: ", mfo)
         orig_mf_pos = self.get_molframe_positions()
-        rel_pos = self.get_relative_positions() / rotd_math.Bohr
-        #print ('rel_pos everything?', len(rel_pos)) #2
-
-        pure_position = self.get_positions()
-        print ('pure position',pure_position)
-
-        slab_evec = self.get_slab_principal_axis()
-        print (slab_evec)
-
-        # Calls for slab
-        # evecs for np.dot
-        # mfo = self.get_rotation_matrix() 
-        # new_com = self.get_labframe_com()
-        # for i in range(0, self.get_number_of_atoms()): # for ase ==3.13.0
-        #     rel_pos = np.dot(orig_mf_pos[i], mfo)
-        #     for j in range(0, 3):
-        #         self.frag_array['lab_frame_positions'][i][j] = rel_pos[j] + new_com[j]
-
-        # check weather the rotation vector is normalized or not
-        norm = np.sqrt(sum(rot_vec**2)) 
-        if abs(1 - norm) > 1.0e-5: # Norm 은 항상 1
-            raise ValueError("Invalid rotation vector")
-
-        # TODO: double check the conversion.
-        for i in range(0, self.get_number_of_atoms()): # for ase==3.13.0 
-        #for i in range(0, self.get_global_number_of_atoms()): # for ase==3.19.0 and over
-            factor = orig_mf_pos[i][0] / norm # x 좌표 가져옴
+        new_com = self.get_labframe_com()
+        # before_setting_lf_position_Pt = self.get_positions()
+        for i in range(0, self.get_number_of_atoms()): # for ase ==3.13.0
+        #for i in range(0, self.get_global_number_of_atoms()): # for ase ==3.19.0 and over
+            rel_pos = np.dot(orig_mf_pos[i], mfo)
+            # print ('I', i)
             for j in range(0, 3):
-                self.frag_array['visualization_positions'][i][j] = new_com[j] + \
-                    factor * rot_vec[j]
-                
+                # print ('J',j)
+                self.frag_array['lab_frame_positions'][i][j] = rel_pos[j] + new_com[j]
+
+        # print ('Nonlin method value: ', self.frag_array['testing_lab_frame_positions'])
+        # print ('Linear method value: ', self.frag_array['lab_frame_positions'])
+             
     def get_inertia_moments(self):
-        #print ('full inertia moments', self.frag_array['inertia_moments'])
-        #print ('what is returned', np.array([self.frag_array['inertia_moments'][2]]*3))
+        # print ('full inertia moments', self.frag_array['inertia_moments'])
+        # print ('what is returned', np.array([self.frag_array['inertia_moments'][2]]*3))
         
         return np.array([self.frag_array['inertia_moments'][2]]*3)
+    
+    def get_inertia_moments_for_surface(self):
+        # print ('full inertia moments', self.frag_array['inertia_moments'])
+        # print ('what is returned', np.array([self.frag_array['inertia_moments'][2]]*3))
+        
+        return self.frag_array['inertia_moments'].copy()

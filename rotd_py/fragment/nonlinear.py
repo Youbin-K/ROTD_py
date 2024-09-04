@@ -56,10 +56,12 @@ class Nonlinear(Fragment):
     def set_labframe_positions(self):
         # molframe 가져와서 랜덤 로테이션 매트릭스만큼 닷 프로덕트 하고 나온 포지션에 센터오브매스 더해줌
         # molframe 의 경우, 내가 준 포지션에대해서 evecs(principal axis) 곱해서 정해짐
-        mfo = self.get_rotation_matrix() # random
-        #print ("THIS IS MFOOO: ", mfo)
+        mfo = self.get_rotation_matrix() # random 매번 다르게 들고옴
+        # print ("THIS IS MFOOO: ", mfo)
         orig_mf_pos = self.get_molframe_positions()
+        # print ('get molframe position: ', orig_mf_pos)
         new_com = self.get_labframe_com()
+        # print ('labframe com: ', new_com)
         before_setting_lf_position_Pt = self.get_positions()
         for i in range(0, self.get_number_of_atoms()): # for ase ==3.13.0
         #for i in range(0, self.get_global_number_of_atoms()): # for ase ==3.19.0 and over
@@ -67,10 +69,31 @@ class Nonlinear(Fragment):
             for j in range(0, 3):
                 self.frag_array['lab_frame_positions'][i][j] = rel_pos[j] + new_com[j]
 
-    def get_inertia_moments(self):
+    def find_final_com_before_append(self):
+        return self.get_center_of_mass()
 
+    def get_inertia_moments(self):
         return self.frag_array['inertia_moments'].copy()
     
+    def testing_rotational_matrix(self):
+        return self.get_rotation_matrix()
+    
+    def testing_lf_com(self):
+        return self.get_labframe_com()
+    
+    def testing_mf_pos(self):
+        return self.get_molframe_positions()
+    
+    def testing_rel_pos(self):
+        return np.dot(self.get_molframe_positions(), self.get_rotation_matrix())
+    
+    def testing_real_rel_pos(self):
+        com = self.get_center_of_mass()
+        positions = self.get_positions() 
+        positions -= com
+        output = positions/rotd_math.Bohr
+        return output
+
     """
     def get_labframe_imm(self, i, j):
 

@@ -111,8 +111,6 @@ class MultiSample(Sample):
                 # print ('lf_com * mfactor, ', self.fragments[1].set_labframe_com(lf_com * mfactor[1]))
                 #print ('mfactor 0 CO, ', mfactor[0]) # 1
                 #print ('mfactor 1 Pt, ', mfactor[1]) # 0
-                # self.fragments[i].set_labframe_com_for_sys_with_slab_all_orig_pos(lf_com * mfactor[i]) # 여기여기??? mfactor 왜 곱해지는건지 아나요 ㅠㅠ
-                #self.fragments[i].set_labframe_com_for_sys_with_slab_all_orig_pos(lf_com) # 여기여기??? mfactor 왜 곱해지는건지 아나요 ㅠㅠ
 
                 # set up the final laboratory frame of two fragment
                 self.fragments[i].set_labframe_positions_for_surface_rotd()
@@ -211,15 +209,6 @@ class MultiSample(Sample):
         self.configuration.set_positions(new_positions) # Labframe, in Ang
         self.labframe_configuration.set_positions(test_labframe_positions)
      
-        # if frag.molecule_type == MolType.SLAB:
-        #     self.fragments[i].unit_cell_mf()       
-        #     orig_unit_cell_pos = self.fragments[i].get_molframe_unit_cell()
-        #     rotated_unit_cell_334_pt = self.fragments[i].unit_cell_mf2lf(orig_unit_cell_pos)
-        #     rotated_unit_cell_334_pt *= rotd_math.Bohr
-        #     self.configuration.set_celldisp(-np.array([30,30,30]))
-        #     self.configuration.get_celldisp()
-        #     self.configuration.set_cell(rotated_unit_cell_334_pt, scale_atoms=True)
-            
 
         #Check the distance of slab and molecule  
         # 여기여기

@@ -57,20 +57,8 @@ class Slab(Fragment):
             for j in range(0, 3):
                 self.frag_array['mfo'][i][j] = mfo[i][j]
     
-    # def set_labframe_positions(self):
-    #     # molframe 가져와서 랜덤 로테이션 매트릭스만큼 닷 프로덕트 하고 나온 포지션에 센터오브매스 더해줌
-    #     # molframe 의 경우, 내가 준 포지션에대해서 evecs(principal axis) 곱해서 정해짐
-    #     #orig_mf_pos = self.get_molframe_positions()
-    #     orig_mf_pos = self.get_original_positions() / rotd_math.Bohr # This sets slab to be in molframe position
-    #     new_com = self.get_labframe_com()
-    #     rel_pos = orig_mf_pos.copy()
-    #     for i in range(0, self.get_number_of_atoms()): # for ase ==3.13.0
-    #     #for i in range(0, self.get_global_number_of_atoms()): # for ase ==3.19.0 and over
-    #         rel_pos[i] = orig_mf_pos[i]
-        
-    #         self.frag_array['lab_frame_positions'][i] = rel_pos[i] #+ new_com
-        
-    def set_labframe_positions(self):
+       
+    def set_labframe_positions_for_surface_rotd(self):
         # molframe 가져와서 랜덤 로테이션 매트릭스만큼 닷 프로덕트 하고 나온 포지션에 센터오브매스 더해줌
         # molframe 의 경우, 내가 준 포지션에대해서 evecs(principal axis) 곱해서 정해짐
         mfo = self.get_rotation_matrix() # random
@@ -81,7 +69,7 @@ class Slab(Fragment):
         test_orig_mf_pos= np.array(orig_mf_pos)  
          
         new_test_orig_mf_pos = Atoms('Pt36', positions=test_orig_mf_pos)
-        #print ('After Atoms',pure_orig_pos)
+        # print ('After Atoms',pure_orig_pos)
         slab_com = self.get_center_of_mass()
 
         new_com = self.get_labframe_com()
@@ -125,33 +113,3 @@ class Slab(Fragment):
 
         return np.array([0.0]*3)
     
-
-    # def set_slab_principal_axis_for_visualization(self): 
-    #     rel_pos = self.get_relative_positions() / rotd_math.Bohr
-    #     masses = self.get_masses() * rotd_math.mp
-    #     I11 = I22 = I33 = I12 = I13 = I23 = 0.0
-    #     for i in range(len(rel_pos)):
-    #         x, y, z = rel_pos[i]
-    #         m = masses[i]
-
-    #         I11 += -m * (x ** 2)
-    #         I22 += -m * (y ** 2)
-    #         I33 += -m * (z ** 2)
-    #         I12 += -m * x * y
-    #         I13 += -m * x * z
-    #         I23 += -m * y * z
-
-    #     I = np.array([[I11, I12, I13, ],
-    #                   [I12, I22, I23],
-    #                   [I13, I23, I33]])
-
-    #     trace = I.trace()
-    #     I = I - np.array([[trace, 0, 0],
-    #                       [0, trace, 0],
-    #                       [0, 0, trace]])
-    #     new_evals, new_evecs = np.linalg.eigh(I)
-        
-    #     #self.frag_array['inertia_moments'] = evals # used for get_inertia_moments, which is used for rc_vec calculation # Principal moments of inertia
-    #     self.frag_array['slab_evecs'] = new_evecs # Used to set labframe_pivot for nonlinear # Principal axes for original, Identity matrix
-
-    #     #print ('slab_evecs', self.frag_array['slab_evecs'])

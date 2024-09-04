@@ -69,12 +69,14 @@ class Sample(object):
         for frag in self.fragments:
             if frag.molecule_type == MolType.MONOATOMIC:
                 continue
-            elif frag.molecule_type == MolType.SLAB:
-                continue
             elif frag.molecule_type == MolType.LINEAR:
                 self.dof_num += 2
             elif frag.molecule_type == MolType.NONLINEAR:
                 self.dof_num += 3
+            elif frag.molecule_type == MolType.SLAB:
+                # continue
+                self.dof_num -= 3
+                #print ('self dof num slab', self.dof_num)
 
     def ini_configuration(self):
         #Initialize the total system with ASE class Atoms
@@ -96,15 +98,21 @@ class Sample(object):
                 #print ("position: ", pos) 
                 #frag.translate([0.0, 0.0, 100])
                 new_positions.append(pos)
+                initial_coms = frag.get_center_of_mass()
+                # print ('initial com', initial_coms)
 
         
 
-        #print ("test", new_positions)
+        #print ("new_positions", new_positions)
         self.configuration = Atoms(new_atoms, new_positions)
-        self.labframe_configuration = Atoms(new_atoms, new_positions)
+        
         self.test_configuration = Atoms(new_atoms, new_positions)
+        
         self.initial_user_configuration = Atoms(new_atoms, new_positions)
-        self.visual_configuration = Atoms(new_atoms, new_positions)
+        self.surface_labframe_configuration = Atoms(new_atoms + ['B','N', 'F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
+        self.visual_configuration = Atoms(new_atoms+ ['B','N', 'F'], new_positions + [[0,0,0],[0,0,0], [0,0,0]])
+        self.gas_visual_configuration = Atoms(new_atoms + ['B','N', 'F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
+        self.gas_labframe_configuration = Atoms(new_atoms + ['B','N','F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
 
         initial_user_position = new_positions.copy()
         self.initial_user_configuration.set_positions(initial_user_position)
@@ -113,6 +121,7 @@ class Sample(object):
         test_traj.write()
         test_traj.close()
         #print ("len config: ", len(self.configuration)) #### Total 38
+        
         # if frag.molecule_type == MolType.SLAB:
         #     # c = FixAtoms(indices = [atom.index for atom in self.configuration if atom.symbol =='Pt'])
         #     # self.configuration.set_constraint(c)
@@ -164,7 +173,7 @@ class Sample(object):
             return 1/pi/Gamma(DOF/2 -1) DOF=nu??
         """
         #print ("Get ej factor")
-        #print ("66666")
+        #print ("66666") # 여기서 끝남..
         # called out after get_microcanonical_factor
         return rotd_math.M_1_PI / rotd_math.gamma_2(self.get_dof() - 2)
 
@@ -219,7 +228,29 @@ class Sample(object):
         for i in range(0, len(lb_pos_0)):
             for j in range(0, len(lb_pos_1)):
                 dist = np.linalg.norm(lb_pos_0[i] - lb_pos_1[j])
+                # print ('def if_fragments_too_close', dist)
+                # print ('self.close_dist', self.close_dist)
                 if dist < self.close_dist:
+                    return True                    
+        return False
+    
+    def if_fragments_too_close_for_surface(self):
+        """Check the distance among atoms between the two fragments.
+
+        Returns
+        -------
+        type
+            Boolean
+
+        """
+        lb_pos_0 = self.fragments[0].get_labframe_positions()
+        lb_pos_1 = self.fragments[1].get_labframe_positions()
+        for i in range(0, len(lb_pos_0)):
+            for j in range(0, len(lb_pos_1)):
+                dist = np.linalg.norm(lb_pos_0[i] - lb_pos_1[j])
+                # print ('def if_fragments_too_close', dist)
+                # print ('self.close_dist', self.close_dist)
+                if dist < 0.001:
                     return True                    
         return False
 
@@ -376,9 +407,9 @@ class Sample(object):
         #print ('slab_com, ', slab_com) # [4.49565233 2.99488394 3.3883244 ]
 
         
-        if (test_point_ax1 < length_of_right_y) and (test_point_ax1 > 2) and \
-            (test_point_ax2 < length_of_bottom_x) and (test_point_ax2 > 2) and \
-            (test_point_ax3 < 20) and (test_point_ax3 > 2):
+        if (test_point_ax1 < length_of_right_y) and (test_point_ax1 > 2.5) and \
+            (test_point_ax2 < length_of_bottom_x) and (test_point_ax2 > 2.5) and \
+            (test_point_ax3 < 20) and (test_point_ax3 > 1.5): # 이게 아마 높이 조절하는값... 처음엔 2.5 도전은 1.0?
             #print ('is in square')
             # print ('right_bottom_molecule_position: ',right_bottom_molecule_position)
             # print ('Carbon position: ', input_molecule_position)

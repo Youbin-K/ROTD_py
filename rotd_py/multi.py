@@ -128,8 +128,14 @@ class multi_master():
 
                     traj2 = Trajectory('aow-how_about_rotation.traj', 'a', slave_flux.sample.visual_configuration)
                     traj2.write()
+                    
+                    traj3 = Trajectory('aow-how_gas_rotation.traj', 'a', slave_flux.sample.gas_visual_configuration)
+                    traj3.write()
+
+
                 traj.close()   
                 traj2.close()
+                traj3.close()
                 # success_traj.close()
 
                 # check the current flux converged or not
@@ -144,7 +150,7 @@ class multi_master():
 
                 elif flux_tag == FluxTag.SURF_TAG:
                     smp_num = smp_info
-                    #print("SURFACE")
+                    print("SURF_TAG")
                     for face_index in range(0, len(smp_num)):
                         if smp_num[i] != 0:
                             flux = copy.deepcopy(self.ref_flux[str(sid)].flux_array[face_index])
@@ -153,6 +159,8 @@ class multi_master():
                                                            smp_num[i]))
 
                 elif flux_tag == FluxTag.STOP_TAG:
+                    print("STOP_TAG")
+
                     self.total_flux[str(sid)].save_file(sid)
                     # for i in range(0, curr_flux.energy_size):
                     #     traj = Trajectory('atest.traj', 'a', slave_flux.sample.configuration)
@@ -177,7 +185,13 @@ class multi_master():
 
                 else:
                     raise ValueError("The flux tag is INVALID")
-
+            # print ('length? ', len((slave_flux.acct_smp())))
+                # curr_flux.add_close_smp(slave_flux.close_smp())
+                # curr_flux.add_face_smp(slave_flux.face_smp())
+                # curr_flux.add_fail_smp(slave_flux.fail_smp())
+                # curr_flux.temp_sum += slave_flux.temp_sum
+                # curr_flux.temp_var += slave_flux.temp_var
+                # curr_flux.e_sum += slave_flux.e_sum
             time.sleep(0.3)
 
 
@@ -198,10 +212,13 @@ class MySlave(Slave): #그냥 Slave structure 다 가져와서 추가로 do_work
         # the length of the matrix
         flux_tag, flux, sid, samp_len = data
         if flux_tag == FluxTag.FLUX_TAG:
+            #print ('run flux tag')
             flux.run(samp_len)
         elif flux_tag == FluxTag.SURF_TAG:
+            print ('I will run the run surf')
             flux.run_surf(samp_len)
         elif flux_tag == FluxTag.STOP_TAG:
+            print ('STOP_TAG2222')
             pass
         else:
             raise ValueError("The communication tas is INVALID")

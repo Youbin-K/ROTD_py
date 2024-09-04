@@ -1,0 +1,377 @@
+## SLURM PROLOG ###############################################################
+##    Job ID : 4460604
+##  Job Name : ROTD_surface_test
+##  Nodelist : node[1322,1325]
+##      CPUs : 8
+##   Mem/CPU : 1024 MB
+## Directory : /oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP
+##   Job Started : Wed Sep  4 03:41:04 PM EDT 2024
+###############################################################################
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1325.oscar.ccv.brown.edu:3611744] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1325.oscar.ccv.brown.edu:3611746] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1325.oscar.ccv.brown.edu:3611745] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] failed to init ucx
+[node1325.oscar.ccv.brown.edu:3611743] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+I am  node1325.oscar.ccv.brown.edu rank 6 (total 8)
+I am  node1325.oscar.ccv.brown.edu rank 7 (total 8)
+I am  node1325.oscar.ccv.brown.edu rank 5 (total 8)
+I am  node1325.oscar.ccv.brown.edu rank 4 (total 8)
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1322.oscar.ccv.brown.edu:3691483] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1322.oscar.ccv.brown.edu:3691481] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1322.oscar.ccv.brown.edu:3691484] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+[LOG_CAT_P2P] UCP worker does not support MPI_THREAD_MULTIPLE
+[LOG_CAT_P2P] failed to init ucx
+[node1322.oscar.ccv.brown.edu:3691482] Error: coll_hcoll_module.c:310 - mca_coll_hcoll_comm_query() Hcol library init failed
+I am  node1322.oscar.ccv.brown.edu rank 0 (total 8)
+I am  node1322.oscar.ccv.brown.edu rank 2 (total 8)
+I am  node1322.oscar.ccv.brown.edu rank 3 (total 8)
+I am  node1322.oscar.ccv.brown.edu rank 1 (total 8)
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+Traceback (most recent call last):
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/copt.py", line 231, in <module>
+Traceback (most recent call last):
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/copt.py", line 231, in <module>
+Traceback (most recent call last):
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/copt.py", line 231, in <module>
+    multi.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 286, in run
+    multi.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 286, in run
+    multi.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 286, in run
+    self.slave.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/mpi_master_slave/master_slave.py", line 144, in run
+    self.slave.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/mpi_master_slave/master_slave.py", line 144, in run
+    self.slave.run()
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/mpi_master_slave/master_slave.py", line 144, in run
+    result = self.do_work(data)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 216, in do_work
+    result = self.do_work(data)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 216, in do_work
+    result = self.do_work(data)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/multi.py", line 216, in do_work
+    flux.run(samp_len)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/flux/flux.py", line 493, in run
+    flux.run(samp_len)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/flux/flux.py", line 493, in run
+    flux.run(samp_len)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/flux/flux.py", line 493, in run
+    energy = self.sample.get_energies(self.calculator)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/sample.py", line 565, in get_energies
+    energy = self.sample.get_energies(self.calculator)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/sample.py", line 565, in get_energies
+    energy = self.sample.get_energies(self.calculator)
+  File "/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/sample.py", line 565, in get_energies
+    e = self.configuration.get_potential_energy()
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/atoms.py", line 682, in get_potential_energy
+    e = self.configuration.get_potential_energy()
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/atoms.py", line 682, in get_potential_energy
+    e = self.configuration.get_potential_energy()
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/atoms.py", line 682, in get_potential_energy
+    energy = self._calc.get_potential_energy(self)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 422, in get_potential_energy
+    energy = self._calc.get_potential_energy(self)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 422, in get_potential_energy
+    energy = self._calc.get_potential_energy(self)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 422, in get_potential_energy
+    energy = self.get_property('energy', atoms)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 461, in get_property
+    energy = self.get_property('energy', atoms)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 461, in get_property
+    energy = self.get_property('energy', atoms)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/calculators/calculator.py", line 461, in get_property
+    self.calculate(atoms, [name], system_changes)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/__init__.py", line 257, in calculate
+    self.calculate(atoms, [name], system_changes)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/__init__.py", line 257, in calculate
+    self.calculate(atoms, [name], system_changes)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/__init__.py", line 257, in calculate
+    self.descriptor.calculate_fingerprints(images=images,
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/descriptor/gaussian.py", line 174, in calculate_fingerprints
+    self.descriptor.calculate_fingerprints(images=images,
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/descriptor/gaussian.py", line 174, in calculate_fingerprints
+    self.descriptor.calculate_fingerprints(images=images,
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/descriptor/gaussian.py", line 174, in calculate_fingerprints
+    self.neighborlist.calculate_items(images, parallel=parallel, log=log)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 411, in calculate_items
+    self.neighborlist.calculate_items(images, parallel=parallel, log=log)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 411, in calculate_items
+    self.neighborlist.calculate_items(images, parallel=parallel, log=log)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 411, in calculate_items
+    d = self.db.open(self.filename, 'r')
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 288, in open
+    d = self.db.open(self.filename, 'r')
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 288, in open
+    d = self.db.open(self.filename, 'r')
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 288, in open
+    return Cls(filename=filename)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 279, in __init__
+    return Cls(filename=filename)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 279, in __init__
+    return Cls(filename=filename)
+  File "/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/amp/utilities.py", line 279, in __init__
+    os.mkdir(self.path)
+FileExistsError: [Errno 17] File exists: 'amp-neighborlists.ampdb'
+    os.mkdir(self.path)
+FileExistsError: [Errno 17] File exists: 'amp-neighborlists.ampdb'
+    os.mkdir(self.path)
+FileExistsError: [Errno 17] File exists: 'amp-neighborlists.ampdb'
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+multi:-16449.506864 unit in Hartree
+multi:-447613.881186 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+multi:-16449.509279 unit in Hartree
+multi:-447613.946915 unit in eV
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+multi:-16449.500306 unit in Hartree
+multi:-447613.702744 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+multi:-16449.503728 unit in Hartree
+multi:-447613.795852 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+multi:-16449.506781 unit in Hartree
+multi:-447613.878920 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+multi:-16449.507118 unit in Hartree
+multi:-447613.888110 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+multi:-16449.506716 unit in Hartree
+multi:-447613.877162 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+multi:-16449.506959 unit in Hartree
+multi:-447613.883768 unit in eV
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+multi:-16449.506974 unit in Hartree
+multi:-447613.884192 unit in eV
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+multi:-16449.507108 unit in Hartree
+multi:-447613.887813 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+multi:-16449.511115 unit in Hartree
+multi:-447613.996861 unit in eV
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1322.oscar.ccv.brown.edu rank 2 executing 
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+  Slave node1322.oscar.ccv.brown.edu rank 3 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+  Slave node1322.oscar.ccv.brown.edu rank 1 executing 
+/oscar/home/ykim219/virtual_env/test_env/lib64/python3.9/site-packages/ase/io/jsonio.py:53: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray.
+  a = np.array(obj)
+  Slave node1325.oscar.ccv.brown.edu rank 5 executing 
+STOP_TAG
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+/oscar/home/ykim219/rotd_PLAYGROUND/Surface_AMP/rotd_py/sample/multi_sample.py:349: RuntimeWarning: invalid value encountered in sqrt
+  / np.sqrt(frag.get_inertia_moments_for_surface())) # 랩프레임

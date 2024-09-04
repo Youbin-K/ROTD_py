@@ -75,6 +75,7 @@ class FluxBase(object):
         return self.pot_smp() + self.space_smp()
 
     def add_acct_smp(self, n):
+        #print ('sample accepted') # 이것도 프린티드 됨.
         self._acct_num += n
 
     def add_fail_smp(self, n):

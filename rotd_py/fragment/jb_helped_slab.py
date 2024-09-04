@@ -48,41 +48,6 @@ class Slab(Fragment):
 
         return np.dot(mf_vector, self.tossed_mfo).reshape(3,)
 
-        
-    
-    def unit_cell_mf(self):
-        """Method used to set up the matrix convert the input Cartesian
-        coordinates to molecular frame coordinates and the molecule frame
-        positions.        
-        """
-
-        unit_cell_334_pt = np.array([[8.3, 0.000, 0.000],
-                                    [4.15, 7.188, 0.000],
-                                    [0.000, 0.000, 26.777]])
-        
-        test_pos_com = self.get_center_of_mass()
-        #print ('unit_cell_com', test_pos_com)
-        unit_cell_334_pt -= test_pos_com 
-        unit_cell_334_pt /= rotd_math.Bohr
-        #print ('unit_cell_orig_pos', unit_cell_334_pt)
-
-        # self.frag_array['orig_mfo'] = self.tossed_mfo 
-        # self.frag_array['unit_cell_mf_position'] = np.dot(unit_cell_334_pt, self.tossed_mfo)
-        
-        unit_cell_334_pt = np.dot(unit_cell_334_pt, self.tossed_mfo) # matrix X matrix 여서 지금은 그냥 곱셈이나 마찬가지
-        unit_cell_334_pt *= rotd_math.Bohr
-        unit_cell_334_pt += test_pos_com
-        unit_cell_334_pt /= rotd_math.Bohr
-        self.frag_array['unit_cell_mf_position'] = unit_cell_334_pt
-
-
-    def unit_cell_mf2lf(self, mf_vector):
-
-        if self.molecule_type != MolType.SLAB:
-            raise ValueError("Wrong molecule type")
-        
-        return np.dot(mf_vector, self.tossed_mfo)
-
 ########################################################################################################
 # 이게 지금 ang_size 가 3 개여서 문제.. 1개 아니면 0개로 바꿔야함.
 ########################################################################################################

@@ -432,7 +432,7 @@ class Multi(object):
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
         if only_surf_id == None or not isinstance(only_surf_id, list):
-            only_surf_id = [surf.surf_id for surf in self.dividing_surfaces]
+            only_surf_id = [int(surf.surf_id) for surf in self.dividing_surfaces]
 
         mc_rate = []
         mc_rate_contrib = []

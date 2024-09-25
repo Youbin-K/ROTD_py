@@ -87,7 +87,8 @@ class Molpro:
             with open(f'{self.name}.inp', 'w') as f:
                 f.write(self.tpl.format(name=self.name,
                                         natom=len(geom),
-                                        geom=xyz
+                                        geom=xyz,
+                                        mem=self.memory_in_MW
                                     ))
             return
         else:
@@ -96,14 +97,14 @@ class Molpro:
             options = "GPRINT,ORBITALS,ORBEN,CIVECTOR \nGTHRESH,energy=1.d-7 \nangstrom \n orient,noorient\n nosym"
             basis = f"basis = {self.calc['basis']}"
                 
-            method = " {rhf;wf," + f"{self.nelectron},{self.symm},{self.spin},{self.charge}" + "}\n\n"
+            method = ""
 
             mtd = regex_in(self.calc['method'])
             if mtd == r".*caspt2\([0-9]+,[0-9]+\)":
                 if 'shift' in self.calc:
                     shift = self.calc['shift']
                 else:
-                    shift = 0.25
+                    shift = 0.3
                 active_electrons = int(self.calc['method'].split("caspt2(")[1].split(",")[0])
                 active_orbitals = int(self.calc['method'].split("caspt2(")[1].split(",")[1][:-1])
                 closed_orbitals = int(math.trunc(self.nelectron-active_electrons)/2)
@@ -142,9 +143,10 @@ class Molpro:
                                         geom=xyz,
                                         basis=basis,
                                         method=method,
-                                        options=options
-                                    ))
-            return 
+                                        options=options,
+                                        mem=self.memory_in_MW
+                                        ))
+            return
 
     def read_energy(self):
         """
@@ -166,9 +168,9 @@ class Molpro:
                     elif ('ERROR') in line:
                         return None
                         #return 1.*rotd_math.Hartree
-            #time.sleep(0.5)
+            # time.sleep(0.5)
             
-    def run(self):
+    def run(self) -> None:
         """
         Submit the molpro job to a slurm queue. 
         It requires a slurm template to be provided, called
@@ -178,7 +180,9 @@ class Molpro:
         on a single node.
         Only field to fill is the name of the file with {name}
         """
-        command = f'molpro -d {self.scratch} -M{self.memory_in_MW} -n {self.procs} {self.name}.inp'
+        # command = f'molpro -d {self.scratch} -M{self.memory_in_MW} -n {self.procs} {self.name}.inp'
+
+        command = f'export OMP_NUM_THREAD={self.procs}\n molpro -d {self.scratch} -t {self.procs} -n {self.procs} {self.name}.inp'
         process = subprocess.Popen(command, shell=True,
                                    stdout=subprocess.PIPE, stdin=subprocess.PIPE,
                                    stderr=subprocess.PIPE)

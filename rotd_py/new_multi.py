@@ -52,6 +52,8 @@ class Multi(object):
             A list of lists containing the number of created samples for each facet for each surfaces.
         converged :
             A list of boolean indicating if the surface with corresponding index is converged.
+        rewrite_converged:
+            Boolean: wether or not to rewrite the output files for the converged surfaces.
         """
         self.dividing_surfaces = dividing_surfaces
         self.sample = sample
@@ -309,7 +311,7 @@ class Multi(object):
 
         """Keep submitting jobs as long as there is work to do"""
         while not all(self.converged):
-            #Stop submitting when all work_queue has been submitted
+            # Stop submitting when all work_queue has been submitted
             if len(self.work_queue) > jobs_submitted:
                 self.submit_work(self.work_queue[jobs_submitted], procs=self.calculator["processors"])
                 jobs_submitted += 1
@@ -334,9 +336,9 @@ class Multi(object):
                 curr_multi_flux = self.total_flux[surf_id]
                 curr_flux = curr_multi_flux.flux_array[face_index]  # multiflux
 
-                #Check if the flux is valid
+                # Check if the flux is valid
                 if job_flux.acct_smp() != samp_len:
-                    #Job failed, probably because of failed serialization.
+                    # Job failed, probably because of failed serialization.
                     flux = copy.deepcopy(self.ref_flux[surf_id].flux_array[face_id])
                     self.newly_finished_jobs.remove(job)
                     self.work_queue.append((FluxTag.FLUX_TAG, flux, surf_id, face_id, flux.samp_len(), 
@@ -398,7 +400,7 @@ class Multi(object):
                     self.total_flux[surf_id].save_file(surf_id)
                     self.total_flux[surf_id].converged = True
                     self.cancel_surface_jobs(surf_id)
-                    self.converged[int(surf_id)] = True #TODO: add full converged check
+                    self.converged[int(surf_id)] = True # TODO: add full converged check
                     self.save_run_in_db()
                     self.logger.info(f'Calculations are done for surface {surf_id}')
                 else:
@@ -412,11 +414,25 @@ class Multi(object):
             self.logger.info("Run finished without new samples.")
         self.logger.info("Correct termination of rotdpy.")
 
-    def print_results(self, ignore_surf_id=None, dynamical_correction=1,faces_weights=None):
+    def print_results(self,
+                      ignore_surf_id=None,
+                      only_surf_id=None,
+                      dynamical_correction=1,
+                      faces_weights=None):
+        """Read data from the data base and from 
+        the printed files to create all the plots necessary to analyse the run.
+
+        Args:
+            ignore_surf_id (List, optional): _description_. Defaults to None.
+            dynamical_correction (int, optional): _description_. Defaults to 1.
+            faces_weights (_type_, optional): _description_. Defaults to None.
+        """
         os.chdir(f"{self.workdir}/{self.sample.name}")
                 
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
+        if only_surf_id == None or not isinstance(only_surf_id, list):
+            only_surf_id = [surf.surf_id for surf in self.dividing_surfaces]
 
         mc_rate = []
         mc_rate_contrib = []
@@ -468,7 +484,7 @@ class Multi(object):
                 if not self.converged[int(surf.surf_id)]:
                     continue
                 
-                if surf.surf_id not in ignore_surf_id:
+                if int(surf.surf_id) not in ignore_surf_id and int(surf.surf_id) in only_surf_id:
                     multi_flux['Canonical'][surf.surf_id] = np.zeros(len(self.fluxbase.temp_grid))
                     multi_flux['Microcanonical'][surf.surf_id] = np.zeros(len(self.fluxbase.energy_grid))
                     multi_flux['E-J resolved'][surf.surf_id] = np.zeros(len(self.fluxbase.angular_grid)*len(self.fluxbase.energy_grid))
@@ -656,12 +672,24 @@ class Multi(object):
 
         os.chdir(f"{self.workdir}")
 
-    def plot_all_samples(self, ignore_surf_id=None, only_surf_id=None, ymax=None, name="sampling", correc=None):
+    def plot_all_samples(self,
+                         ignore_surf_id=None,
+                         only_surf_id=None,
+                         ymax=None,
+                         name="sampling",
+                         correc=None):
+        """Create a plot of the energy(y) depending on the distance(x) of each samples
+        for a given list of surfaces.
+        
+        Arguments:
+            ignore_surf_id (list[int]): list of ids of surfaces to not plot.
+            only_surf_id (list[int]): list of ids of surfaces to plot.
+        """
         os.chdir(f"{self.workdir}/{self.sample.name}")
         if ignore_surf_id == None or not isinstance(ignore_surf_id, list):
             ignore_surf_id = []
         if only_surf_id == None or not isinstance(only_surf_id, list):
-            only_surf_id = [surf.surf_id for surf in self.dividing_surfaces]
+            only_surf_id = [int(surf.surf_id) for surf in self.dividing_surfaces]
 
 
         all_surf_all_samp_e = []
@@ -724,10 +752,17 @@ class Multi(object):
                     self.logger.warning(f'Skipping {file} because empty.')
                     continue
                 geom = np.zeros((molec_len,3))
+                skip = False
                 for index, line in enumerate(lines[4:]):
-                    geom[index][0] = float(line.split()[1])
-                    geom[index][1] = float(line.split()[2])
-                    geom[index][2] = float(line.split()[3])
+                    try:
+                        geom[index][0] = float(line.split()[1])
+                        geom[index][1] = float(line.split()[2])
+                        geom[index][2] = float(line.split()[3])
+                    except IndexError:  # An error happened when the file got written. Ignore this sample.
+                        skip = True
+                        break
+                if skip:
+                    continue
                 configuration = ase.Atoms(elements, positions=geom)
                 distance = configuration.get_distance(scan_ref[0][0], scan_ref[0][1])
                 all_samp_e.append(energy)
@@ -827,7 +862,6 @@ class Multi(object):
             self.running_jobs.append(job)
             return
         while len(self.running_jobs) >= self.calculator['max_jobs']:
-            time.sleep(1)
             self.check_running_jobs()
 
         #Jobs with status FAILED or TO DO will come here

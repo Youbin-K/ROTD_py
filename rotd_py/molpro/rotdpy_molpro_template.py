@@ -1,5 +1,6 @@
 default_molpro_template = """***, {name}
 {options}
+{mem}
 geomtyp=xyz
 geometry={{
 {natom}

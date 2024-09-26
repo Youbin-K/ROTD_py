@@ -6,13 +6,17 @@ import numpy as np
 from mpi4py import MPI
 from ase.atoms import Atoms
 from ase_modules.calculators.gaussian import Gaussian
-# from amp import Amp
-
+import ase
 from rotd_py.system import MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.molpro.molpro import Molpro
 from rotd_py.corrections.correction_generator import CorrectionGenerator
 from rotd_py.corrections.bsse import BSSE
+from ase.atoms import Atoms, Atom
+from ase.io.trajectory import Trajectory
+from amp import Amp
+from ase.constraints import FixAtoms
+import math
 
 
 class Sample(object):
@@ -49,7 +53,7 @@ class Sample(object):
     """
 
     def __init__(self, name, fragments, dividing_surface=None,
-                 min_fragments_distance=1.5, inf_energy=0.0, energy_size=1,
+                 min_fragments_distance=None, inf_energy=0.0, energy_size=1,
                  corrections=None):
         __metaclass__ = ABCMeta
         self.name=name
@@ -99,6 +103,8 @@ class Sample(object):
                 self.dof_num += 2
             elif frag.molecule_type == MolType.NONLINEAR:
                 self.dof_num += 3
+            elif frag.molecule_type == MolType.SLAB:
+                self.dof_num -= 3
 
     def ini_configuration(self):
         """Initialize the total system with ASE class Atoms
@@ -110,7 +116,23 @@ class Sample(object):
             new_atoms += frag.get_chemical_symbols()
             for pos in frag.get_positions():
                 new_positions.append(pos)
+                initial_coms = frag.get_center_of_mass()
+
         self.configuration = Atoms(new_atoms, new_positions)
+        self.test_configuration = Atoms(new_atoms, new_positions)
+        
+        self.initial_user_configuration = Atoms(new_atoms, new_positions)
+        self.surface_labframe_configuration = Atoms(new_atoms + ['B','N', 'F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
+        self.visual_configuration = Atoms(new_atoms+ ['B','N', 'F'], new_positions + [[0,0,0],[0,0,0], [0,0,0]])
+        self.gas_visual_configuration = Atoms(new_atoms + ['B','N', 'F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
+        self.gas_labframe_configuration = Atoms(new_atoms + ['B','N','F', 'He'], new_positions + [[0,0,0],[0,0,0], [0,0,0], [0,0,0]])
+
+        initial_user_position = new_positions.copy()
+        self.initial_user_configuration.set_positions(initial_user_position)
+
+        test_traj = Trajectory('initial_user_config.traj', 'w', self.initial_user_configuration)
+        test_traj.write()
+        test_traj.close()
 
     def get_dof(self):
         """return degree of freedom
@@ -168,6 +190,79 @@ class Sample(object):
                     return True
         return False
 
+    def if_fragments_too_close_for_surface(self):
+        """Check the distance among atoms between the two fragments.
+
+        Returns
+        -------
+        type
+            Boolean
+
+        """
+        lb_pos_0 = self.fragments[0].get_labframe_positions()
+        lb_pos_1 = self.fragments[1].get_labframe_positions()
+        for i in range(0, len(lb_pos_0)):
+            for j in range(0, len(lb_pos_1)):
+                dist = np.linalg.norm(lb_pos_0[i] - lb_pos_1[j])
+                # print ('def if_fragments_too_close', dist)
+                # print ('self.close_dist', self.close_dist)
+                if dist < 0.001:
+                    return True                    
+        return False
+    
+    def check_in_surface(self):
+
+        def distance_between_two_points(point1, point2):
+            # x1, y1, z1 = point1
+            # x2, y2, z2 = point2
+            # distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+            distance = np.sqrt(np.sum((point2 - point1)**2))
+            return distance
+        
+        right_bottom_molecule_position = (self.configuration.get_positions()[37]) # Pt 37
+        right_top_molecule_position = (self.configuration.get_positions()[35]) # Pt 35
+        left_bottom_molecule_position = (self.configuration.get_positions()[31]) # Pt 31
+        left_top_molecule_position = (self.configuration.get_positions()[29]) # Pt 29
+        
+        length_of_bottom_x = distance_between_two_points(right_bottom_molecule_position, left_bottom_molecule_position)
+        length_of_top_x = distance_between_two_points(right_top_molecule_position, left_top_molecule_position)
+        length_of_left_y = distance_between_two_points(left_bottom_molecule_position, left_top_molecule_position)
+        length_of_right_y = distance_between_two_points(right_bottom_molecule_position, right_top_molecule_position)
+
+        input_molecule = Atoms(self.configuration.get_chemical_symbols()[:2],
+                               self.configuration.get_positions()[:2])
+        input_molecule_com = input_molecule.get_center_of_mass()
+        input_molecule_position = (self.configuration.get_positions()[0]) # Carbon
+
+        square_ax1 = (right_top_molecule_position - right_bottom_molecule_position)/ distance_between_two_points(right_top_molecule_position, right_bottom_molecule_position)
+        square_ax2 = (left_bottom_molecule_position -  right_bottom_molecule_position)/ distance_between_two_points(left_bottom_molecule_position,  right_bottom_molecule_position)
+        square_ax3 = np.cross(square_ax1, square_ax2)
+        test_point = input_molecule_com - right_bottom_molecule_position
+        test_point_ax1 = np.dot(test_point, square_ax1)
+        test_point_ax2 = np.dot(test_point, square_ax2)
+        test_point_ax3 = np.dot(test_point, square_ax3)
+
+        input_slab = Atoms(self.configuration.get_chemical_symbols()[2:38],
+                               self.configuration.get_positions()[2:38])
+        
+        #print ('what is this?', input_slab)
+        input_slab_com = input_slab.get_center_of_mass()
+        #slab_com = self.fragments[1].get_center_of_mass() # This gives you initial position COM
+        #print ('slab_com, ', slab_com) # [4.49565233 2.99488394 3.3883244 ]
+
+        
+        if (test_point_ax1 < length_of_right_y) and (test_point_ax1 > 2.5) and \
+            (test_point_ax2 < length_of_bottom_x) and (test_point_ax2 > 2.5) and \
+            (test_point_ax3 < 20) and (test_point_ax3 > 1.5): # 이게 아마 높이 조절하는값... 처음엔 2.5 도전은 1.0?
+            #print ('is in square')
+            # print ('right_bottom_molecule_position: ',right_bottom_molecule_position)
+            # print ('Carbon position: ', input_molecule_position)
+            #print ('slab aow COM', input_slab_com) # Correct COM comes out!!
+            return False
+            
+        else: 
+            return True
+    
     @abstractmethod
     def generate_configuration(self):
         """This function is an abstract method for generating random
@@ -208,8 +303,10 @@ class Sample(object):
         elif calculator['code'][-3:].casefold() == 'amp':
             amp_calc = Amp.load(f"../../{calculator['code'][-3:]}")
             self.configuration.set_calculator(amp_calc)
-            energy = self.configuration.get_potential_energy()
+            energy_amp = self.configuration.get_potential_energy()
             self.configuration.set_calculator(None)
+            self.energies[0] = energy_amp / rotd_math.Hartree - self.inf_energy
+
         elif calculator['code'].casefold() == 'molpro':
             
             mp = Molpro(label, self.configuration, calculator.copy())

@@ -1,11 +1,12 @@
 import numpy as np
 
-from rotd_py.system import SampTag, FluxTag
+from rotd_py.system import SampTag, FluxTag, MolType
 import rotd_py.rotd_math as rotd_math
 from rotd_py.flux.fluxbase import FluxBase
 import copy
 import os
 import shutil
+from ase.io.trajectory import Trajectory
 min_flux = 1e-99
 # CAUTION! all units are atomic unit
 
@@ -455,6 +456,18 @@ class Flux(FluxBase):
         cn_fac = self.sample.get_canonical_factor()
         mc_fac = self.sample.get_microcanonical_factor()
         ej_fac = self.sample.get_ej_factor()
+
+        there_is_slab = False
+        for f in self.sample.fragments:
+            if f.molecule_type == MolType.SLAB:
+                there_is_slab = True
+                break
+
+        if there_is_slab == False:            
+            ej_fac = self.sample.get_ej_factor()
+        else:
+            asdfasfd = 32
+
         dof = self.sample.get_dof()
 
         # each time, number of samp_len points are sampled.
@@ -516,6 +529,14 @@ class Flux(FluxBase):
                 if energy[i] < self.min_energy[i]:
                     self.min_energy[i] = energy[i]
                     self.min_geometry[i] = self.sample.configuration.get_positions()
+                if vol_num <= self.get_vol_num_max() or self.is_pot() and self.acct_smp:
+                    labframe_traj = Trajectory('accepted_surf_labframe_in_Bohr.traj', 'a', self.sample.surface_labframe_configuration)
+                    labframe_traj.write()
+
+                    gas_labframe_traj = Trajectory('accepted_gas_labframe_in_Bohr.traj', 'a', self.sample.gas_labframe_configuration)
+                    gas_labframe_traj.write()
+            labframe_traj.close()
+            gas_labframe_traj.close()
 
             as_num += 1
             # calculate the flux.
@@ -533,6 +554,8 @@ class Flux(FluxBase):
                 # microcanonical flux:
                 if self.flux_type == 'CANONICAL':
                     continue
+
+                # This is MICROCANONICAL N(E)
                 for en_ind in range(0, len(self.energy_grid)):  # energy grid cycle
                     ken = self.energy_grid[en_ind] - energy[pes]
                     if (ken) < 0:

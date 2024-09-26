@@ -7,6 +7,7 @@ class MolType(Enum):
     MONOATOMIC = 1
     LINEAR = 2
     NONLINEAR = 3
+    SLAB = 4
 
 
 class SampTag(Enum):

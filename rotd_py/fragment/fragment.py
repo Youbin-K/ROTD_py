@@ -3,6 +3,7 @@ import rotd_py.rotd_math as rotd_math
 import numpy as np
 from abc import ABCMeta, abstractmethod
 from rotd_py.system import MolType
+from rotd_py.sample.sample import Sample, preprocess
 
 
 class Fragment(Atoms):
@@ -86,6 +87,11 @@ class Fragment(Atoms):
         positions -= com
 
         return positions
+    
+    def get_original_positions(self):
+        """Return the positions that relative to center of mass. """
+        positions = self.get_positions() 
+        return positions
 
     def set_molframe_positions(self):
         """Method used to set up the matrix. Convert the input Cartesian
@@ -125,7 +131,9 @@ class Fragment(Atoms):
     # all the following are dynamic variable related to on-the-fly sampling
     def init_dynamic_variable(self):
         """Initialize the dynamic variable related to rotating the molecule. """
-        self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3))
+        # self.frag_array['lab_frame_positions'] = np.zeros((self.get_global_number_of_atoms(), 3))
+        self.frag_array['lab_frame_positions'] = np.zeros((self.get_number_of_atoms(), 3)) # for ase 3.13.0
+        self.frag_array['testing_lab_frame_positions'] = np.zeros((self.get_number_of_atoms(), 3)) # for ase 3.13.0
         self.frag_array['lab_frame_COM'] = np.zeros(3)
         self.frag_array['orient_vector'] = np.zeros(self.get_ang_size())
         self.frag_array['mfo'] = np.zeros((3, 3))
@@ -146,8 +154,15 @@ class Fragment(Atoms):
         """
         if any(item is None for item in new_com) or len(new_com) != 3:
             raise ValueError('Wrong dimension of position')
-        for i in range(0, len(new_com)):
-            self.frag_array['lab_frame_COM'][i] = new_com[i]
+        if self.molecule_type == MolType.SLAB:
+            # test_com = self.get_center_of_mass() / rotd_math.Bohr
+            # for i in range(0,len(test_com)):
+            #     self.frag_array['lab_frame_COM'][i] = test_com[i]
+            for i in range(0,len(new_com)):
+                self.frag_array['lab_frame_COM'][i] = new_com[i]
+        else: 
+            for i in range(0, len(new_com)):
+                self.frag_array['lab_frame_COM'][i] = new_com[i]
 
     def get_ang_pos(self):
         return self.frag_array['orient_vector'].copy()
@@ -205,6 +220,12 @@ class Fragment(Atoms):
 
     @abstractmethod
     def get_inertia_moments(self):
+        """Return the moments of inertia of molecule, same to the
+        atoms.get_moments_of_inertia() function, with different units.
+        """
+        
+    @abstractmethod
+    def get_inertia_moments_for_surface(self):
         """Return the moments of inertia of molecule, same to the
         atoms.get_moments_of_inertia() function, with different units.
         """

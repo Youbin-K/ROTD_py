@@ -20,7 +20,6 @@ from rotd_py.job_tpl import py_tpl_str
 from rotd_py.analysis import integrate_micro, integrate_ej, get_Ne_from_e
 from rotd_py.analysis import create_matplotlib_graph
 from rotd_py.corrections.onedimensional import OneDimensional
-
 from rotd_py.config_log import config_log
 
 class Multi(object):

@@ -39,15 +39,15 @@ conv_fac = 612.6
 # def any useful function for calculation under below:
 
 
-def gamma_2(n):
+def gamma_2(n): #Gamma function =Gamma(n/2) 
     if n == 1:
-        return M_SQRTPI
+        return M_SQRTPI # = np.sqrt(np.pi)
     elif n == 2:
         return 1.0
     elif n > 2:
         return (n-2.0)/2.0 * gamma_2(n-2)
 
-    return 0
+    return 0 # n>2 일땐 자기 혼자 돔 + return 0은 값이 음수거나, 0일때.
 
 
 def mc_stat_weight(kin_en, ang_mom, iner_mom, dof_num):

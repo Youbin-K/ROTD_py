@@ -59,3 +59,25 @@ class Nonlinear(Fragment):
     def get_inertia_moments(self):
 
         return self.frag_array['inertia_moments'].copy()
+
+    def find_final_com_before_append(self):
+        return self.get_center_of_mass()
+    
+    def testing_rotational_matrix(self):
+        return self.get_rotation_matrix()
+    
+    def testing_lf_com(self):
+        return self.get_labframe_com()
+    
+    def testing_mf_pos(self):
+        return self.get_molframe_positions()
+    
+    def testing_rel_pos(self):
+        return np.dot(self.get_molframe_positions(), self.get_rotation_matrix())
+    
+    def testing_real_rel_pos(self):
+        com = self.get_center_of_mass()
+        positions = self.get_positions() 
+        positions -= com
+        output = positions/rotd_math.Bohr
+        return output

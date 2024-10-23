@@ -22,7 +22,7 @@ from rotd_py.analysis import create_matplotlib_graph
 from rotd_py.corrections.onedimensional import OneDimensional
 from rotd_py.config_log import config_log
 
-class Multi(object):
+class new_Multi(object):
     """
     This is the application Multi that has a lot of work to do
     so it gives work to do to its slaves until all the work is done

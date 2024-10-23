@@ -4,6 +4,7 @@ from rotd_py.corrections.correction import Correction
 from rotd_py.sample.sample import Sample
 import numpy as np
 from ase.atoms import Atoms
+from typing import Optional
 
 
 class Custom(Correction):
@@ -39,7 +40,7 @@ class Custom(Correction):
         self.custom_module = importlib.import_module(custom_file)
 
     def energy(self,
-               configuration: Atoms | None = None,
+               configuration: Optional[Atoms] = None,
                distance: float = np.inf) -> float:
         """Return the correction energy (Hartree) for a given sample.
 
@@ -54,3 +55,20 @@ class Custom(Correction):
         energy: float = self.custom_module(configuration,
                                            distance)
         return energy
+    
+    # def energy(self,
+    #            configuration: Atoms | None = None,
+    #            distance: float = np.inf) -> float:
+    #     """Return the correction energy (Hartree) for a given sample.
+
+    #     Args:
+    #         configuration (Sample): Configuration being sampled
+    #         distance (float): distance between reactive atoms for
+    #                           the facet being sampled (Angstrom).
+
+    #     Returns:
+    #         float: energy of the correction only (Hartree)
+    #     """
+    #     energy: float = self.custom_module(configuration,
+    #                                        distance)
+    #     return energy

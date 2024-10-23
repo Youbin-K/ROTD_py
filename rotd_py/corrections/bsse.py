@@ -2,6 +2,7 @@ from rotd_py.corrections.correction import Correction
 import rotd_py.rotd_math as rotd_math
 import numpy as np
 from ase.atoms import Atoms
+from typing import Optional
 
 
 class BSSE(Correction):
@@ -30,9 +31,9 @@ class BSSE(Correction):
         self.fragment2_charge = int(sum(self.sample.fragments[1].get_initial_charges()))
         self.fragment1_mult = 1
         self.fragment2_mult = 1
-
+    
     def energy(self,
-               configuration: Atoms | None = None,
+               configuration: Optional[Atoms] = None,
                distance: float = np.inf) -> float:
         with open(f'{configuration.calc.label}.log', 'r') as f:
             lines = f.readlines()
@@ -42,3 +43,15 @@ class BSSE(Correction):
                 return bsse
 
         return 0.0
+
+    # def energy(self,
+    #            configuration: Atoms | None = None,
+    #            distance: float = np.inf) -> float:
+    #     with open(f'{configuration.calc.label}.log', 'r') as f:
+    #         lines = f.readlines()
+    #     for line in reversed(lines):
+    #         if 'BSSE energy' in line:
+    #             bsse = float(line.split()[3])*rotd_math.Hartree
+    #             return bsse
+
+    #     return 0.0

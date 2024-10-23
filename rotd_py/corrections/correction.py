@@ -1,8 +1,10 @@
 import numpy as np
-
+# import importlib
+from typing import Optional
 import rotd_py.rotd_math as rotd_math
 from rotd_py.analysis import create_matplotlib_graph
-#from rotd_py.sample.sample import Sample
+# from rotd_py.sample.sample import Sample
+from abc import ABCMeta, abstractmethod
 import abc
 from ase.atoms import Atoms
 
@@ -11,7 +13,9 @@ class Correction:
     """Parent class for all the corrections.
     All methods should be overwriten for a new correction.
     """
-    __metaclass__ = abc.ABCMeta
+    #__metaclass__ = abc.ABCMeta
+    __metaclass__ = ABCMeta
+
 
     def __init__(self,
                  name: str,
@@ -36,9 +40,26 @@ class Correction:
         """
         pass
 
+    # @abc.abstractmethod
+    # def energy(self,
+    #            configuration: Atoms | None = None,
+    #            distance: float = np.inf) -> float:
+    #     """Return the correction energy (Hartree) for a given sample.
+
+    #     Args:
+    #         configuration (Sample): Configuration being sampled
+    #         distance (float): distance between reactive atoms for
+    #                           the facet being sampled (Angstrom).
+
+    #     Returns:
+    #         float: energy of the correction only (Hartree)
+    #     """
+    #     return 0.0
+
+
     @abc.abstractmethod
     def energy(self,
-               configuration: Atoms | None = None,
+               configuration: Optional[Atoms] = None,
                distance: float = np.inf) -> float:
         """Return the correction energy (Hartree) for a given sample.
 

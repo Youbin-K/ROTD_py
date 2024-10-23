@@ -3,6 +3,8 @@ import rotd_py.rotd_math as rotd_math
 from scipy.interpolate import make_interp_spline
 import numpy as np
 from ase.atoms import Atoms
+from typing import Optional
+
 
 
 class OneDimensional(Correction):
@@ -73,9 +75,8 @@ class OneDimensional(Correction):
             self.scan_ref.append([scr[0],
                                   scr[1] +
                                   len(self.sample.fragments[0].positions)])
-
     def energy(self,
-               configuration: Atoms | None = None,
+               configuration: Optional[Atoms] = None,
                distance: float = np.inf) -> float:
         if distance != np.inf:
             if distance > min(max(self.r_trust), max(self.r_sample)):
@@ -96,3 +97,26 @@ class OneDimensional(Correction):
             return 0.
         else:
             return self._1d_correction(distance)
+        
+    # def energy(self,
+    #            configuration: Atoms | None = None,
+    #            distance: float = np.inf) -> float:
+    #     if distance != np.inf:
+    #         if distance > min(max(self.r_trust), max(self.r_sample)):
+    #             return 0.
+    #         elif distance < max(min(self.r_trust), min(self.r_sample)):
+    #             return self._1d_correction(max(min(self.r_trust),
+    #                                            min(self.r_sample)))
+    #         else:
+    #             return self._1d_correction(distance)
+    #     for scr in self.scan_ref:
+    #         distance = min(distance,
+    #                        np.absolute(
+    #                          np.linalg.norm(configuration.positions[scr[0]] -
+    #                                         configuration.positions[scr[1]])))
+    #     if distance > min(max(self.r_trust), max(self.r_sample)):
+    #         return 0.
+    #     elif distance < max(min(self.r_trust), min(self.r_sample)):
+    #         return 0.
+    #     else:
+    #         return self._1d_correction(distance)
